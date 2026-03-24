@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thư viện THPT Nguyễn Hữu Cảnh</title>
+  <link rel="icon" href="school-logo.svg">
+  <!-- Redirect ngay lập tức, không chờ JS -->
+  <meta http-equiv="refresh" content="0; url=login.html">
+</head>
+<body>
+<script>
+  // Kiểm tra phiên đăng nhập trước khi redirect
+  try {
+    const ver  = localStorage.getItem('nhc4_dbver');
+    const auth = localStorage.getItem('nhc4_auth');
+    if (ver === 'nhc4_v3_2026' && auth) {
+      // Đã đăng nhập → vào dashboard
+      location.replace('dashboard.html');
+    } else {
+      // Chưa đăng nhập → vào login
+      location.replace('login.html');
+    }
+  } catch(e) {
+    location.replace('login.html');
+  }
+</script>
+<noscript>
+  <p>Vui lòng bật JavaScript để sử dụng hệ thống thư viện.</p>
+  <a href="login.html">Nhấn đây để vào trang đăng nhập</a>
+</noscript>
+</body>
+</html>

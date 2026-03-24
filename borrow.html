@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mượn / Trả — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('borrow');
+const U = getCurrentUser();
+const isLib = U.role === 'librarian';
+
+let tabActive = isLib ? 'new' : 'my';
+let searchQ   = '';
+let selUser   = null;     // user được chọn để lập phiếu
+let statusFlt = 'active'; // 'active' | 'all' | 'returned'
+
+// Nhận bookId từ trang sách
+const quickBook = sessionStorage.getItem('quick_borrow_book');
+if (quickBook) { sessionStorage.removeItem('quick_borrow_book'); tabActive = isLib?'new':'my'; }
+
+function render() {
+  const borrows = getBorrows();
+  const books   = getBooks();
+  const users   = getUsers();
+
+  const active   = borrows.filter(r=>r.status==='borrowed').length;
+  const overdue  = borrows.filter(r=>r.status==='overdue').length;
+  const todayRet = borrows.filter(r=>r.status==='returned'&&r.returnDate===todayStr()).length;
+
+  let tabsHtml = '';
+  if (isLib) {
+    tabsHtml = `
+    <div class="tab-bar">
+      <button class="tab-btn${tabActive==='new'?' active':''}" onclick="setTab('new')">➕ Lập phiếu mượn</button>
+      <button class="tab-btn${tabActive==='list'?' active':''}" onclick="setTab('list')">📋 Đang mượn <span class="tab-count">${active+overdue}</span></button>
+      <button class="tab-btn${tabActive==='history'?' active':''}" onclick="setTab('history')">📜 Lịch sử trả <span class="tab-count">${borrows.filter(r=>r.status==='returned').length}</span></button>
+    </div>`;
+  } else {
+    tabsHtml = `
+    <div class="tab-bar">
+      <button class="tab-btn${tabActive==='my'?' active':''}" onclick="setTab('my')">📖 Sách đang mượn</button>
+      <button class="tab-btn${tabActive==='history'?' active':''}" onclick="setTab('history')">📜 Lịch sử mượn</button>
+    </div>`;
+  }
+
+  let bodyHtml = '';
+
+  if (tabActive === 'new' && isLib) {
+    // Lập phiếu mượn
+    const availBooks = books.filter(b=>b.avail>0);
+    bodyHtml = `
+<div class="card" style="max-width:520px">
+  <div class="card-hd">📝 Lập phiếu mượn sách</div>
+  <form class="frm" onsubmit="handleBorrow(event)">
+    <div class="field"><label>Sách <span class="req">*</span></label>
+      <select id="br-book" required>
+        <option value="">-- Chọn sách --</option>
+        ${availBooks.map(b=>`<option value="${b.id}"${quickBook===b.id?' selected':''}>${esc(b.title)} (${esc(b.author)}) — Còn: ${b.avail}</option>`).join('')}
+        ${availBooks.length===0?'<option disabled>Không có sách nào có sẵn</option>':''}
+      </select>
+    </div>
+    <div class="field"><label>Người mượn <span class="req">*</span></label>
+      <div class="usearch-wrap">
+        <div class="iw"><span class="ii">👤</span>
+          <input type="text" id="uSearch" placeholder="Tìm tên, mã số, username..." autocomplete="off" oninput="onUserSearch(this.value)" onfocus="onUserSearch(this.value)">
+        </div>
+        <div id="uDrop" class="usearch-drop"></div>
+        <div id="selUserBox"></div>
+        <input type="hidden" id="br-user">
+      </div>
+    </div>
+    <div class="frm-row">
+      <div class="field"><label>Ngày mượn</label><input type="date" id="br-date" value="${todayStr()}"></div>
+      <div class="field"><label>Hạn trả</label><input type="date" id="br-due" value="${defDue()}"></div>
+    </div>
+    <div class="field"><label>Ghi chú</label><input type="text" id="br-note" placeholder="Tuỳ chọn..."></div>
+    <button type="submit" class="btn btn-primary btn-full">✅ Xác nhận mượn sách</button>
+  </form>
+</div>`;
+
+  } else if (tabActive === 'list' && isLib) {
+    // Danh sách đang mượn (librarian)
+    let list = borrows.filter(r=>r.status==='borrowed'||r.status==='overdue');
+    const q = searchQ.toLowerCase();
+    if (q) list = list.filter(r=>{
+      const b=books.find(x=>x.id===r.bookId), u=users.find(x=>x.id===r.userId);
+      return (b?.title||'').toLowerCase().includes(q)||(u?.name||'').toLowerCase().includes(q)||(u?.studentId||'').toLowerCase().includes(q);
+    });
+    bodyHtml = `
+<div class="toolbar">
+  <div class="sbox">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" placeholder="Tìm sách, người mượn..." value="${esc(searchQ)}" oninput="searchQ=this.value;render()">
+  </div>
+  <button class="btn btn-warning" onclick="autoMarkOverdue()">⚠️ Cập nhật quá hạn</button>
+</div>
+${borrowTableHtml(list, books, users, true)}`;
+
+  } else if (tabActive === 'history') {
+    // Lịch sử
+    const myId = isLib ? null : U.id;
+    let list = borrows.filter(r=>r.status==='returned' && (isLib || r.userId===myId));
+    list = list.sort((a,b)=>(b.returnDate||'').localeCompare(a.returnDate||''));
+    bodyHtml = `
+${borrowTableHtml(list, books, users, false)}`;
+
+  } else if (tabActive === 'my') {
+    // Sách đang mượn của tôi (HS/GV)
+    let list = borrows.filter(r=>r.userId===U.id && (r.status==='borrowed'||r.status==='overdue'));
+    bodyHtml = `
+${list.length===0
+  ?'<div class="empty-state">📚 Bạn chưa mượn sách nào<br><small>Hãy đến trang <a href="books.html" style="color:#1E3A8A">Sách</a> để xem và yêu cầu mượn</small></div>'
+  :borrowTableHtml(list, books, users, false)}`;
+  }
+
+  document.getElementById('content').innerHTML = `
+<div class="page">
+  <div class="page-hd">
+    <h1>🔄 Mượn / Trả sách</h1>
+    <p>${isLib?'Quản lý phiếu mượn trả cho toàn bộ người dùng':'Theo dõi sách bạn đang mượn'}</p>
+  </div>
+  ${isLib?`<div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">📖</div><div><p class="stat-label">Đang mượn</p><p class="stat-val" style="color:#1E40AF">${active}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2">⚠️</div><div><p class="stat-label">Quá hạn</p><p class="stat-val" style="color:#DC2626">${overdue}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">✅</div><div><p class="stat-label">Trả hôm nay</p><p class="stat-val" style="color:#059669">${todayRet}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#EDE9FE">📊</div><div><p class="stat-label">Tổng phiếu</p><p class="stat-val" style="color:#7C3AED">${borrows.length}</p></div></div>
+  </div>`:''}
+  ${tabsHtml}
+  ${bodyHtml}
+</div>`;
+
+  // Attach user search
+  if (tabActive==='new' && isLib) renderSelUser();
+}
+
+function borrowTableHtml(list, books, users, canReturn) {
+  if (list.length===0) return '<div class="empty-state">📋 Không có phiếu mượn nào</div>';
+  return `
+<div class="tbl-wrap"><table class="tbl">
+  <thead><tr>
+    <th>Sách</th><th>Người mượn</th><th>Ngày mượn</th><th>Hạn trả</th>
+    ${canReturn?'':'<th>Ngày trả</th>'}
+    <th>Trạng thái</th>
+    ${canReturn?'<th>Thao tác</th>':''}
+  </tr></thead>
+  <tbody>
+  ${list.map(r=>{
+    const b = books.find(x=>x.id===r.bookId);
+    const u = users.find(x=>x.id===r.userId);
+    const rc = ROLE_COLOR[u?.role]||{bg:'#F3F4F6',c:'#374151'};
+    return `<tr>
+      <td><p class="fw">${esc(b?.title||'—')}</p><small style="color:#9CA3AF">${esc(b?.author||'')}</small></td>
+      <td><div class="u-cell">
+        <div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${(u?.name||'?').charAt(0)}</div>
+        <div><p class="fw">${esc(u?.name||'N/A')}</p><small style="color:#9CA3AF">${esc(u?.studentId||'')}${u?.className?' · '+u.className:''}</small></div>
+      </div></td>
+      <td style="color:#6B7280">${fmtD(r.borrowDate)}</td>
+      <td style="color:${r.status==='overdue'?'#DC2626':'#6B7280'}">${fmtD(r.dueDate)}</td>
+      ${canReturn?'':'<td style="color:#6B7280">'+fmtD(r.returnDate)+'</td>'}
+      <td>${statusBadge(r.status)}</td>
+      ${canReturn?`<td><div class="act"><button class="btn btn-sm btn-success" onclick="returnBook('${r.id}')">✅ Trả sách</button></div></td>`:''}
+    </tr>`;
+  }).join('')}
+  </tbody>
+</table></div>`;
+}
+
+function setTab(t) { tabActive=t; selUser=null; searchQ=''; render(); }
+
+// ── User search ────────────────────────────────────────────────
+function onUserSearch(q) {
+  const drop = document.getElementById('uDrop');
+  if (!drop) return;
+  if (!q.trim()) { drop.style.display='none'; return; }
+  const res = getUsers().filter(u=>u.status==='approved'&&(
+    u.name.toLowerCase().includes(q.toLowerCase())||
+    (u.username||'').toLowerCase().includes(q.toLowerCase())||
+    (u.studentId||'').toLowerCase().includes(q.toLowerCase())
+  )).slice(0,8);
+  if (!res.length) { drop.style.display='none'; return; }
+  drop.innerHTML = res.map(u=>{
+    const rc=ROLE_COLOR[u.role]||{bg:'#F3F4F6',c:'#374151'};
+    return `<div class="usearch-item" onclick="selectUser('${u.id}')">
+      <div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${u.name.charAt(0)}</div>
+      <div><p>${esc(u.name)}</p><small>${esc(u.studentId||'')} · ${ROLE_LABEL[u.role]||u.role}${u.className?' · Lớp '+u.className:''}</small></div>
+    </div>`;
+  }).join('');
+  drop.style.display = 'block';
+}
+
+function selectUser(uid_) {
+  const u = getUsers().find(x=>x.id===uid_);
+  if (!u) return;
+  selUser = u;
+  document.getElementById('br-user').value = u.id;
+  document.getElementById('uSearch').value = '';
+  document.getElementById('uDrop').style.display = 'none';
+  renderSelUser();
+}
+
+function renderSelUser() {
+  const box = document.getElementById('selUserBox');
+  if (!box) return;
+  if (!selUser) { box.innerHTML=''; return; }
+  const rc = ROLE_COLOR[selUser.role]||{bg:'#F3F4F6',c:'#374151'};
+  box.innerHTML = `<div class="selected-user">
+    <div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${selUser.name.charAt(0)}</div>
+    <div class="selected-user-info">
+      <p>${esc(selUser.name)}</p>
+      <small>${esc(selUser.studentId||'')} · ${ROLE_LABEL[selUser.role]}${selUser.className?' · Lớp '+selUser.className:''}</small>
+    </div>
+    <span class="selected-user-clear" onclick="clearUser()">✕</span>
+  </div>`;
+}
+
+function clearUser() {
+  selUser = null;
+  document.getElementById('br-user').value = '';
+  renderSelUser();
+}
+
+// Đóng dropdown khi click ra ngoài
+document.addEventListener('click', e=>{
+  if (!e.target.closest('.usearch-wrap')) {
+    const d = document.getElementById('uDrop');
+    if (d) d.style.display='none';
+  }
+});
+
+// ── Actions ───────────────────────────────────────────────────
+function handleBorrow(e) {
+  e.preventDefault();
+  const bookId  = document.getElementById('br-book').value;
+  const userId  = document.getElementById('br-user').value;
+  const dateVal = document.getElementById('br-date').value || todayStr();
+  const dueVal  = document.getElementById('br-due').value  || defDue();
+  const note    = document.getElementById('br-note').value.trim();
+  if (!bookId) { toast('Vui lòng chọn sách','error'); return; }
+  if (!userId) { toast('Vui lòng chọn người mượn','error'); return; }
+
+  const books   = getBooks();
+  const users   = getUsers();
+  const borrows = getBorrows();
+  const b = books.find(x=>x.id===bookId);
+  const u = users.find(x=>x.id===userId);
+  if (!b || b.avail<1) { toast('Sách không còn khả dụng','error'); return; }
+
+  // Kiểm tra người dùng này đã mượn sách này chưa
+  const exists = borrows.some(r=>r.bookId===bookId&&r.userId===userId&&(r.status==='borrowed'||r.status==='overdue'));
+  if (exists) { toast(`${u?.name} đang mượn cuốn sách này rồi!`,'warning'); return; }
+
+  const r = { id:'r'+Date.now(), bookId, userId, borrowDate:dateVal, dueDate:dueVal, status:'borrowed', returnDate:'', note };
+  borrows.push(r);
+  b.avail = Math.max(0, b.avail-1);
+  b.bCount = (b.bCount||0)+1;
+  saveBorrows(borrows);
+  saveBooks(books);
+
+  // Gửi lên GS BORROW sheet
+  gsPost(GS.BORROW, { action:'BORROW', bookTitle:b.title, bookAuthor:b.author, borrowerName:u?.name||'', borrowerCode:u?.studentId||'', className:u?.className||'', borrowDate:dateVal, dueDate:dueVal, note, processedBy:U.name });
+  toast(`✅ Đã lập phiếu mượn\n"${b.title}" cho ${u?.name}`, 'success');
+  selUser = null;
+  setTab('list');
+}
+
+function returnBook(rid) {
+  const borrows = getBorrows();
+  const books   = getBooks();
+  const users   = getUsers();
+  const r = borrows.find(x=>x.id===rid);
+  if (!r) return;
+  const b = books.find(x=>x.id===r.bookId);
+  const u = users.find(x=>x.id===r.userId);
+  if (!confirm(`Xác nhận "${u?.name}" đã trả sách "${b?.title}"?`)) return;
+  r.status = 'returned';
+  r.returnDate = todayStr();
+  if (b) b.avail = Math.min(b.qty, b.avail+1);
+  saveBorrows(borrows);
+  saveBooks(books);
+
+  // Gửi lên GS BORROW sheet
+  gsPost(GS.BORROW, { action:'RETURN', bookTitle:b?.title||'', borrowerName:u?.name||'', returnDate:r.returnDate, processedBy:U.name });
+  toast(`✅ Đã ghi nhận trả sách: "${b?.title}"`, 'success');
+  render();
+}
+
+function autoMarkOverdue() {
+  const borrows = getBorrows();
+  const today = todayStr();
+  let count = 0;
+  borrows.forEach(r=>{
+    if (r.status==='borrowed' && r.dueDate < today) { r.status='overdue'; count++; }
+  });
+  saveBorrows(borrows);
+  toast(`Đã cập nhật ${count} phiếu quá hạn`, count>0?'warning':'info');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

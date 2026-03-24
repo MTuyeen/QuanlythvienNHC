@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cài đặt — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('settings', ['librarian']);
+const U = getCurrentUser();
+const CFG_KEY = 'nhc4_config';
+
+function getCfg() {
+  return db.get(CFG_KEY, {
+    schoolName: 'THPT Nguyễn Hữu Cảnh',
+    libName:    'Thư viện THPT Nguyễn Hữu Cảnh',
+    schoolYear: '2025-2026',
+    address:    'Đồng Nai',
+    maxDays:    14,
+    maxBooks:   3,
+    enableNotify: true,
+    enableAutoOverdue: true,
+  });
+}
+
+function render() {
+  const cfg = getCfg();
+  const books   = getBooks();
+  const users   = getUsers();
+  const borrows = getBorrows();
+  const docs    = getDocs();
+
+  // Storage usage estimate
+  let storageUsed = 0;
+  try {
+    for (const k of Object.values(K)) {
+      const v = localStorage.getItem(k)||'';
+      storageUsed += v.length;
+    }
+    storageUsed += (localStorage.getItem('nhc4_feedbacks')||'').length;
+  } catch{}
+  const storageKB = (storageUsed/1024).toFixed(1);
+  const pct = Math.min(100, (storageKB/5120)*100).toFixed(1);
+
+  document.getElementById('content').innerHTML = `
+<div class="page" style="max-width:720px">
+  <div class="page-hd"><h1>⚙️ Cài đặt hệ thống</h1><p>Cấu hình thư viện và thông số hoạt động</p></div>
+
+  <!-- Thống kê nhanh -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">📚</div><div><p class="stat-label">Đầu sách</p><p class="stat-val" style="color:#1E40AF">${books.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">👥</div><div><p class="stat-label">Người dùng</p><p class="stat-val" style="color:#059669">${users.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">🔄</div><div><p class="stat-label">Phiếu mượn</p><p class="stat-val" style="color:#D97706">${borrows.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#EDE9FE">📄</div><div><p class="stat-label">Tài liệu</p><p class="stat-val" style="color:#7C3AED">${docs.length}</p></div></div>
+  </div>
+
+  <!-- Thông tin thư viện -->
+  <div class="card">
+    <div class="card-hd">🏫 Thông tin thư viện</div>
+    <div class="frm">
+      <div class="frm-row">
+        <div class="field"><label>Tên trường</label><input type="text" id="cfg-school" value="${esc(cfg.schoolName)}"></div>
+        <div class="field"><label>Năm học</label><input type="text" id="cfg-year" value="${esc(cfg.schoolYear)}" placeholder="2025-2026"></div>
+      </div>
+      <div class="field"><label>Tên thư viện</label><input type="text" id="cfg-lib" value="${esc(cfg.libName)}"></div>
+      <div class="field"><label>Địa chỉ</label><input type="text" id="cfg-addr" value="${esc(cfg.address)}" placeholder="Địa chỉ trường..."></div>
+    </div>
+  </div>
+
+  <!-- Quy định mượn sách -->
+  <div class="card">
+    <div class="card-hd">📋 Quy định mượn sách</div>
+    <div class="frm">
+      <div class="frm-row">
+        <div class="field"><label>Số ngày mượn tối đa</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" id="cfg-days" value="${cfg.maxDays}" min="1" max="90" style="width:80px">
+            <span style="color:#6B7280">ngày</span>
+          </div>
+        </div>
+        <div class="field"><label>Số sách mượn tối đa/lần</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" id="cfg-books" value="${cfg.maxBooks}" min="1" max="20" style="width:80px">
+            <span style="color:#6B7280">cuốn</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tính năng -->
+  <div class="card">
+    <div class="card-hd">🔧 Tính năng</div>
+    <div class="toggle-wrap">
+      <div><p class="toggle-label">Tự động đánh dấu quá hạn</p><p class="toggle-sub">Cập nhật trạng thái phiếu mượn khi quá ngày hạn trả</p></div>
+      <label class="toggle"><input type="checkbox" id="cfg-auto" ${cfg.enableAutoOverdue?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-wrap">
+      <div><p class="toggle-label">Thông báo khi có người đăng ký</p><p class="toggle-sub">Hiển thị badge đỏ trên menu Người dùng</p></div>
+      <label class="toggle"><input type="checkbox" id="cfg-notify" ${cfg.enableNotify?'checked':''}><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <!-- Google Sheets -->
+  <div class="card">
+    <div class="card-hd">☁️ Google Sheets Integration</div>
+    <div class="frm">
+      <div class="field"><label>URL Apps Script — Người dùng / Đăng nhập</label>
+        <input type="text" id="gs-user" value="${esc(GS.USER)}" style="font-size:11px">
+      </div>
+      <div class="field"><label>URL Apps Script — Danh mục sách</label>
+        <input type="text" id="gs-book" value="${esc(GS.BOOK)}" style="font-size:11px">
+      </div>
+      <div class="field"><label>URL Apps Script — Mượn / Trả</label>
+        <input type="text" id="gs-borrow" value="${esc(GS.BORROW)}" style="font-size:11px">
+      </div>
+      <div class="field"><label>URL Apps Script — Phản hồi</label>
+        <input type="text" id="gs-feedback" value="${esc(GS.FEEDBACK)}" style="font-size:11px">
+      </div>
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px;font-size:12px;color:#1E40AF;line-height:1.7">
+        <strong>📌 Lưu ý:</strong> Dữ liệu được gửi lên Google Sheets tự động khi có thay đổi.
+        Nếu mạng không ổn định, sẽ hiển thị badge "Offline" trên thanh tiêu đề. Dữ liệu vẫn lưu local.
+      </div>
+    </div>
+  </div>
+
+  <!-- Storage & Backup -->
+  <div class="card">
+    <div class="card-hd">💾 Dung lượng &amp; Sao lưu</div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;color:#6B7280">
+        <span>Đã dùng: <strong>${storageKB} KB</strong></span><span>Tối đa ước tính: 5 MB</span>
+      </div>
+      <div style="height:8px;background:#F3F4F6;border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${parseFloat(pct)>80?'#DC2626':parseFloat(pct)>60?'#D97706':'#059669'};border-radius:99px;transition:width .5s"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="exportData()">📤 Xuất dữ liệu JSON</button>
+      <button class="btn btn-ghost" onclick="importData()">📥 Nhập dữ liệu JSON</button>
+      <button class="btn btn-danger" onclick="clearAllData()">🗑️ Xóa toàn bộ &amp; Reset</button>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="doImport(this)">
+    <div style="margin-top:12px;padding:10px 12px;background:#FEF3C7;border-radius:8px;font-size:12px;color:#92400E;line-height:1.6">
+      <strong>💡 Gặp lỗi đăng nhập hoặc trang bỏ qua login?</strong><br>
+      Mở file <code style="background:#FDE68A;padding:1px 4px;border-radius:3px">clear_data.html</code> để xóa phiên cũ và bắt đầu lại.
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-primary" onclick="saveSettings()">💾 Lưu cài đặt</button>
+    <button class="btn btn-ghost" onclick="render()">↺ Hủy thay đổi</button>
+  </div>
+</div>`;
+}
+
+function saveSettings() {
+  const cfg = {
+    schoolName: document.getElementById('cfg-school').value.trim(),
+    libName:    document.getElementById('cfg-lib').value.trim(),
+    schoolYear: document.getElementById('cfg-year').value.trim(),
+    address:    document.getElementById('cfg-addr').value.trim(),
+    maxDays:    parseInt(document.getElementById('cfg-days').value)||14,
+    maxBooks:   parseInt(document.getElementById('cfg-books').value)||3,
+    enableAutoOverdue: document.getElementById('cfg-auto').checked,
+    enableNotify:      document.getElementById('cfg-notify').checked,
+  };
+  db.set(CFG_KEY, cfg);
+  toast('✅ Đã lưu cài đặt thành công!', 'success');
+}
+
+function exportData() {
+  const data = {};
+  Object.entries(K).forEach(([name,key]) => { data[name]=db.get(key); });
+  data['FEEDBACKS'] = db.get('nhc4_feedbacks');
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `nhc-library-backup-${todayStr()}.json`;
+  a.click();
+  toast('📤 Đã xuất dữ liệu thành công!', 'success');
+}
+
+function importData() { document.getElementById('import-file').click(); }
+
+function doImport(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!confirm('Nhập dữ liệu sẽ ghi đè lên dữ liệu hiện tại. Tiếp tục?')) return;
+      Object.entries(K).forEach(([name,key]) => { if(data[name]) db.set(key, data[name]); });
+      if (data['FEEDBACKS']) db.set('nhc4_feedbacks', data['FEEDBACKS']);
+      toast('✅ Nhập dữ liệu thành công! Đang tải lại...', 'success');
+      setTimeout(()=>location.reload(), 1200);
+    } catch { toast('❌ File không hợp lệ','error'); }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function clearAllData() {
+  if (!confirm('⚠️ XÓA TOÀN BỘ dữ liệu?\nBao gồm sách, người dùng, phiếu mượn, tài liệu.\nThao tác này KHÔNG thể hoàn tác!\n\nNhập "XACNHAN" để tiếp tục:')) return;
+  const confirm2 = prompt('Nhập "XACNHAN" để xác nhận:');
+  if (confirm2 !== 'XACNHAN') { toast('Đã hủy thao tác','info'); return; }
+  Object.values(K).forEach(key => db.del(key));
+  db.del('nhc4_feedbacks');
+  db.del('nhc4_config');
+  toast('Đã xóa dữ liệu. Đăng xuất...', 'warning');
+  setTimeout(doLogout, 1200);
+}
+
+render();
+</script>
+</body>
+</html>

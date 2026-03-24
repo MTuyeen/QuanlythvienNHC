@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Đăng nhập — Thư viện THPT Nguyễn Hữu Cảnh</title>
+  <link rel="icon" href="school-logo.svg">
+  <link rel="stylesheet" href="style.css">
+  <style>body { background: #F1F5F9; }</style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="login-wrap">
+  <!-- LEFT: Branding -->
+  <div class="login-left">
+    <div class="ll-blob1"></div><div class="ll-blob2"></div><div class="ll-blob3"></div>
+    <div class="ll-brand">
+      <!-- Thử PNG trước, nếu lỗi thì dùng SVG, nếu vẫn lỗi thì dùng emoji -->
+      <img src="school-logo.png" alt="Logo NHC" class="ll-logo"
+        onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=ll-logo-fb>📚</div>'};">
+      <p class="ll-school">THPT Nguyễn Hữu Cảnh</p>
+      <p class="ll-school-sub">Đồng Nai · Thành lập 1998</p>
+      <div class="ll-badge">📚 Hệ thống Thư viện Trực tuyến</div>
+    </div>
+    <div class="ll-feats">
+      <div class="ll-feat"><span>📖</span> Tra cứu &amp; mượn sách dễ dàng</div>
+      <div class="ll-feat"><span>🎓</span> Dành cho học sinh, giáo viên</div>
+      <div class="ll-feat"><span>📄</span> Tải tài liệu &amp; đề thi (GV/Thủ thư)</div>
+      <div class="ll-feat"><span>📊</span> Thống kê &amp; quản lý hiệu quả</div>
+      <div class="ll-feat"><span>☁️</span> Đồng bộ Google Sheets tự động</div>
+    </div>
+    <p class="ll-copy">© 2026 Thư viện THPT Nguyễn Hữu Cảnh</p>
+  </div>
+
+  <!-- RIGHT: Form -->
+  <div class="login-right">
+    <!-- Mobile brand -->
+    <div class="mobile-brand">
+      <img src="school-logo.png" alt="Logo"
+        style="width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.1)"
+        onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=mobile-brand-fb>📚</div>'};">
+      <div>
+        <p class="mobile-brand-name">THPT Nguyễn Hữu Cảnh</p>
+        <p class="mobile-brand-sub">Hệ thống Thư viện</p>
+      </div>
+    </div>
+
+    <div class="card login-card">
+      <!-- Tabs -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">🔑 Đăng nhập</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">📝 Đăng ký</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="pane-login">
+        <form class="frm" onsubmit="handleLogin(event)">
+          <div class="field">
+            <label>Tên đăng nhập</label>
+            <div class="iw"><span class="ii">@</span>
+              <input type="text" id="l-user" placeholder="Nhập tên đăng nhập" required autocomplete="username">
+            </div>
+          </div>
+          <div class="field">
+            <label>Mật khẩu</label>
+            <div class="iw"><span class="ii">🔒</span>
+              <input type="password" id="l-pwd" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+              <span class="eye-btn" onclick="togglePwd('l-pwd',this)">👁️</span>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-login">🔑 Đăng nhập</button>
+          <p class="form-link">Chưa có tài khoản? <a onclick="switchTab('register')">Đăng ký ngay</a></p>
+        </form>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="pane-register" style="display:none">
+        <form class="frm" onsubmit="handleRegister(event)">
+          <div class="field">
+            <label>Tên đăng nhập <span class="req">*</span></label>
+            <div class="iw"><span class="ii">@</span>
+              <input type="text" id="r-user" placeholder="VD: NguyenVanA123" required>
+            </div>
+            <small>Không dấu, không khoảng trắng. Dùng để đăng nhập.</small>
+          </div>
+          <div class="field">
+            <label>Họ và tên <span class="req">*</span></label>
+            <div class="iw"><span class="ii">👤</span>
+              <input type="text" id="r-name" placeholder="Nguyễn Văn A" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Vai trò <span class="req">*</span></label>
+            <div class="role-picker">
+              <button type="button" class="role-btn active" id="role-student" onclick="setRole('student')">🎓 Học sinh</button>
+              <button type="button" class="role-btn" id="role-teacher" onclick="setRole('teacher')">👨‍🏫 Giáo viên</button>
+              <button type="button" class="role-btn" id="role-librarian" onclick="setRole('librarian')">📚 Thủ thư</button>
+            </div>
+          </div>
+          <div id="student-fields">
+            <div class="frm-row">
+              <div class="field">
+                <label>Lớp <span class="req">*</span></label>
+                <div class="iw"><span class="ii">🏫</span>
+                  <input type="text" id="r-class" placeholder="VD: 12A1">
+                </div>
+              </div>
+              <div class="field">
+                <label>Số hiệu HS <span class="req">*</span></label>
+                <div class="iw"><span class="ii">🎫</span>
+                  <input type="text" id="r-id" placeholder="VD: HS12345">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <div class="iw"><span class="ii">✉️</span>
+              <input type="email" id="r-email" placeholder="email@nhc.edu.vn">
+            </div>
+          </div>
+          <div class="frm-row">
+            <div class="field">
+              <label>Mật khẩu <span class="req">*</span></label>
+              <div class="iw"><span class="ii">🔒</span>
+                <input type="password" id="r-pwd" placeholder="≥ 3 ký tự" required>
+                <span class="eye-btn" onclick="togglePwd('r-pwd',this)">👁️</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Xác nhận <span class="req">*</span></label>
+              <div class="iw"><span class="ii">🔒</span>
+                <input type="password" id="r-cpwd" placeholder="Nhập lại" required>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-reg">📝 Đăng ký tài khoản</button>
+          <p class="form-link">Đã có tài khoản? <a onclick="switchTab('login')">Đăng nhập</a></p>
+        </form>
+      </div>
+    </div>
+
+    <p class="login-note">Sau khi đăng ký, tài khoản cần được thủ thư phê duyệt mới đăng nhập được.</p>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+  // Nếu đã đăng nhập → chuyển thẳng vào dashboard
+  if (getCurrentUser()) location.replace('dashboard.html');
+
+  let currentRole = 'student';
+
+  function switchTab(t) {
+    document.getElementById('pane-login').style.display    = t==='login'    ? '' : 'none';
+    document.getElementById('pane-register').style.display = t==='register' ? '' : 'none';
+    document.getElementById('tab-login').classList.toggle('active',    t==='login');
+    document.getElementById('tab-register').classList.toggle('active', t==='register');
+  }
+
+  function setRole(role) {
+    currentRole = role;
+    ['student','teacher','librarian'].forEach(r => {
+      document.getElementById('role-'+r)?.classList.toggle('active', r===role);
+    });
+    document.getElementById('student-fields').style.display = role==='student' ? '' : 'none';
+    ['r-class','r-id'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.required = (role==='student');
+    });
+  }
+  setRole('student');
+
+  function togglePwd(id, btn) {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    inp.type = inp.type==='password' ? 'text' : 'password';
+    btn.textContent = inp.type==='password' ? '👁️' : '🙈';
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('l-user').value.trim();
+    const password = document.getElementById('l-pwd').value;
+    if (!username || !password) { toast('Vui lòng nhập đầy đủ thông tin','error'); return; }
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true; btn.textContent = 'Đang đăng nhập...';
+    setTimeout(() => {
+      const result = doLogin(username, password);
+      btn.disabled = false; btn.innerHTML = '🔑 Đăng nhập';
+      const msgs = {
+        not_found: 'Tên đăng nhập không tồn tại',
+        wrong_pwd: 'Mật khẩu không đúng',
+        pending:   'Tài khoản đang chờ thủ thư phê duyệt',
+        rejected:  'Tài khoản đã bị từ chối. Liên hệ thủ thư.',
+      };
+      if (result === 'success') {
+        toast('Đăng nhập thành công! Đang chuyển trang...', 'success');
+        setTimeout(() => location.href='dashboard.html', 700);
+      } else {
+        toast(msgs[result]||'Lỗi đăng nhập', 'error');
+      }
+    }, 400);
+  }
+
+  function handleRegister(e) {
+    e.preventDefault();
+    const username = document.getElementById('r-user').value.trim();
+    const name     = document.getElementById('r-name').value.trim();
+    const email    = document.getElementById('r-email').value.trim();
+    const pwd      = document.getElementById('r-pwd').value;
+    const cpwd     = document.getElementById('r-cpwd').value;
+    const cls      = document.getElementById('r-class')?.value.trim()||'';
+    const sid      = document.getElementById('r-id')?.value.trim()||'';
+
+    if (!username || !name || !pwd) { toast('Vui lòng điền đầy đủ thông tin (*)','error'); return; }
+    if (currentRole==='student' && (!cls || !sid)) { toast('Học sinh phải nhập Lớp và Số hiệu','error'); return; }
+    if (pwd !== cpwd) { toast('Mật khẩu xác nhận không khớp','error'); return; }
+    if (pwd.length < 3) { toast('Mật khẩu phải có ít nhất 3 ký tự','error'); return; }
+
+    const btn = document.getElementById('btn-reg');
+    btn.disabled = true; btn.textContent = 'Đang xử lý...';
+    setTimeout(() => {
+      const result = doRegister({ username, name, email, password: pwd, role: currentRole, className: cls, studentId: sid });
+      btn.disabled = false; btn.innerHTML = '📝 Đăng ký tài khoản';
+      if (result === 'success') {
+        toast('Đăng ký thành công! Chờ thủ thư phê duyệt.', 'success', 'Thành công');
+        setTimeout(() => switchTab('login'), 1000);
+      } else {
+        toast('Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.','error');
+      }
+    }, 450);
+  }
+</script>
+</body>
+</html>

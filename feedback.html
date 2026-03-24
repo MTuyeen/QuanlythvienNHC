@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Phản hồi — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('feedback');
+const U = getCurrentUser();
+const isLib = U.role === 'librarian';
+
+const FB_KEY = 'nhc4_feedbacks';
+let ratingVal = 0;
+
+function getFeedbacks() { return db.get(FB_KEY, []); }
+function saveFeedbacks(v) { db.set(FB_KEY, v); }
+
+function render() {
+  const feedbacks = getFeedbacks();
+  const myFbs = feedbacks.filter(f=>f.userId===U.id);
+  const allFbs = [...feedbacks].sort((a,b)=>b.date.localeCompare(a.date));
+  const showList = isLib ? allFbs : myFbs;
+
+  const avgRating = feedbacks.length ? (feedbacks.reduce((s,f)=>s+(f.rating||0),0)/feedbacks.length).toFixed(1) : 0;
+
+  document.getElementById('content').innerHTML = `
+<div class="page">
+  <div class="page-hd">
+    <h1>💬 Phản hồi &amp; Đánh giá</h1>
+    <p>${isLib?'Xem tất cả phản hồi từ người dùng':'Gửi phản hồi về thư viện cho chúng tôi'}</p>
+  </div>
+
+  ${isLib?`
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">⭐</div><div><p class="stat-label">Điểm TB</p><p class="stat-val" style="color:#D97706">${avgRating}/5</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#DBEAFE">💬</div><div><p class="stat-label">Tổng phản hồi</p><p class="stat-val" style="color:#1E40AF">${feedbacks.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">👥</div><div><p class="stat-label">Người gửi</p><p class="stat-val" style="color:#059669">${new Set(feedbacks.map(f=>f.userId)).size}</p></div></div>
+  </div>`:''}
+
+  <!-- Form gửi phản hồi (tất cả người dùng) -->
+  <div class="card">
+    <div class="card-hd">✏️ ${myFbs.length>0?'Gửi thêm phản hồi':'Gửi phản hồi của bạn'}</div>
+    <form class="frm" onsubmit="handleFeedback(event)">
+      <div class="frm-row">
+        <div class="field"><label>Loại phản hồi</label>
+          <select id="fb-type">
+            <option value="Ý kiến">💡 Ý kiến đóng góp</option>
+            <option value="Yêu cầu sách">📚 Yêu cầu nhập sách</option>
+            <option value="Báo lỗi">🐛 Báo lỗi hệ thống</option>
+            <option value="Khen ngợi">🌟 Khen ngợi</option>
+            <option value="Khác">💬 Khác</option>
+          </select>
+        </div>
+        <div class="field"><label>Đánh giá thư viện</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+            ${[1,2,3,4,5].map(n=>`
+            <span style="font-size:28px;cursor:pointer;color:${ratingVal>=n?'#F59E0B':'#D1D5DB'};transition:color .1s"
+              onclick="setRating(${n})" onmouseover="hoverRating(${n})" onmouseout="resetHover()">★</span>`).join('')}
+            <span style="font-size:13px;color:#6B7280">${ratingVal>0?ratingVal+'/5':'Chưa chọn'}</span>
+          </div>
+          <input type="hidden" id="fb-rating" value="${ratingVal}">
+        </div>
+      </div>
+      <div class="field"><label>Tiêu đề</label>
+        <input type="text" id="fb-title" placeholder="VD: Đề xuất bổ sung sách Tiếng Anh lớp 11">
+      </div>
+      <div class="field"><label>Nội dung phản hồi <span class="req">*</span></label>
+        <textarea id="fb-body" rows="4" placeholder="Nhập nội dung chi tiết tại đây..." required></textarea>
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+          <input type="checkbox" id="fb-anon"> Gửi ẩn danh (không hiện tên)
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-fb">💬 Gửi phản hồi</button>
+    </form>
+  </div>
+
+  <!-- Danh sách phản hồi -->
+  ${showList.length>0?`
+  <div>
+    <div class="sec-hd"><h2>${isLib?'📋 Tất cả phản hồi':'📋 Phản hồi của bạn'}</h2></div>
+    <div class="feedback-list">
+      ${showList.map(f=>fbCardHtml(f)).join('')}
+    </div>
+  </div>`:''}
+</div>`;
+}
+
+function fbCardHtml(f) {
+  const isLib_ = U.role==='librarian';
+  const stars = '★'.repeat(f.rating||0)+'☆'.repeat(5-(f.rating||0));
+  const typeColors = { 'Ý kiến':'#DBEAFE//#1E40AF','Yêu cầu sách':'#EDE9FE//#5B21B6','Báo lỗi':'#FEE2E2//#DC2626','Khen ngợi':'#D1FAE5//#059669','Khác':'#F3F4F6//#374151' };
+  const [tbg,tc] = (typeColors[f.type]||'#F3F4F6//#374151').split('//');
+  const rc = ROLE_COLOR[f.userRole]||{bg:'#F3F4F6',c:'#374151'};
+  return `
+<div class="card" style="padding:16px">
+  <div class="fb-hd">
+    ${f.anonymous&&!isLib_
+      ?'<div class="avatar avatar-md" style="background:#F3F4F6;color:#9CA3AF">?</div>'
+      :`<div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${(f.senderName||'?').charAt(0)}</div>`}
+    <div style="flex:1">
+      <p style="font-weight:600;font-size:13px">${f.anonymous&&!isLib_?'Ẩn danh':esc(f.senderName||'')}</p>
+      <p style="font-size:11px;color:#9CA3AF">${fmtD(f.date)} · ${ROLE_LABEL[f.userRole]||f.userRole||''}</p>
+    </div>
+    <span class="badge" style="background:${tbg};color:${tc}">${esc(f.type||'Khác')}</span>
+    ${f.rating?`<span style="color:#F59E0B;font-size:14px">${stars}</span>`:''}
+  </div>
+  ${f.title?`<p style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(f.title)}</p>`:''}
+  <p class="fb-body">${esc(f.body)}</p>
+  ${isLib_&&!f.replied?`
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid #F3F4F6;display:flex;gap:8px">
+    <input type="text" placeholder="Phản hồi từ thủ thư..." style="flex:1;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;outline:none">
+    <button class="btn btn-sm btn-primary" onclick="replyFb('${f.id}',this)">Gửi</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteFb('${f.id}')">🗑️</button>
+  </div>`:''}
+  ${f.reply?`<div style="margin-top:8px;padding:8px 12px;background:#EFF6FF;border-radius:8px;border-left:3px solid #1E3A8A;font-size:12px;color:#1E40AF"><strong>📚 Thủ thư:</strong> ${esc(f.reply)}</div>`:''}
+</div>`;
+}
+
+function setRating(n) {
+  ratingVal = n;
+  document.getElementById('fb-rating').value = n;
+  // Update stars display
+  document.querySelectorAll('#content .page .card span[onclick^="setRating"]').forEach((star,i)=>{
+    star.style.color = (i+1)<=n ? '#F59E0B' : '#D1D5DB';
+  });
+  document.querySelector('#content .page .card span[style*="13px"]').textContent = n+'/5';
+}
+
+function hoverRating(n) {
+  document.querySelectorAll('#content .page .card span[onclick^="setRating"]').forEach((star,i)=>{
+    star.style.color = (i+1)<=n ? '#FBBF24' : '#D1D5DB';
+  });
+}
+function resetHover() {
+  const cur = ratingVal;
+  document.querySelectorAll('#content .page .card span[onclick^="setRating"]').forEach((star,i)=>{
+    star.style.color = (i+1)<=cur ? '#F59E0B' : '#D1D5DB';
+  });
+}
+
+function handleFeedback(e) {
+  e.preventDefault();
+  const type  = document.getElementById('fb-type').value;
+  const title = document.getElementById('fb-title').value.trim();
+  const body  = document.getElementById('fb-body').value.trim();
+  const rating= parseInt(document.getElementById('fb-rating').value)||0;
+  const anon  = document.getElementById('fb-anon').checked;
+  if (!body) { toast('Vui lòng nhập nội dung phản hồi','error'); return; }
+  const f = {
+    id: uid(), type, title, body, rating, anonymous: anon,
+    userId: U.id, senderName: U.name, userRole: U.role,
+    date: todayStr(), replied: false, reply: '',
+  };
+  const fbs = getFeedbacks();
+  fbs.push(f);
+  saveFeedbacks(fbs);
+  // Gửi lên GS FEEDBACK
+  gsPost(GS.FEEDBACK, { action:'FEEDBACK', type, title, body, rating, senderName:anon?'Ẩn danh':U.name, senderRole:ROLE_LABEL[U.role]||U.role, date:f.date });
+  toast('✅ Đã gửi phản hồi! Cảm ơn bạn.', 'success');
+  ratingVal = 0;
+  render();
+}
+
+function replyFb(id, btn) {
+  const inp = btn.previousElementSibling;
+  const reply = inp?.value.trim();
+  if (!reply) { toast('Vui lòng nhập nội dung phản hồi','error'); return; }
+  const fbs = getFeedbacks();
+  const f = fbs.find(x=>x.id===id);
+  if (!f) return;
+  f.reply = reply; f.replied = true;
+  saveFeedbacks(fbs);
+  toast('Đã gửi phản hồi','success');
+  render();
+}
+
+function deleteFb(id) {
+  if (!confirm('Xóa phản hồi này?')) return;
+  saveFeedbacks(getFeedbacks().filter(x=>x.id!==id));
+  toast('Đã xóa','success');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

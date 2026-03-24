@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Xóa dữ liệu cũ — Thư viện NHC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F1F5F9;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .box{background:white;border-radius:16px;padding:36px;max-width:440px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.12);text-align:center}
+    h2{font-size:20px;color:#111;margin-bottom:8px}
+    p{font-size:14px;color:#6B7280;line-height:1.6;margin-bottom:16px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:background .15s;text-decoration:none}
+    .btn-danger{background:#FEE2E2;color:#DC2626}
+    .btn-danger:hover{background:#FECACA}
+    .btn-primary{background:#1E3A8A;color:white;margin-top:10px}
+    .btn-primary:hover{background:#1e40af}
+    .icon{font-size:52px;margin-bottom:14px}
+    .note{font-size:12px;color:#9CA3AF;margin-top:14px;padding:10px;background:#F9FAFB;border-radius:8px}
+    .done{display:none;color:#059669;font-size:14px;font-weight:600;margin-top:12px}
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="icon">🗑️</div>
+  <h2>Xóa dữ liệu & Phiên cũ</h2>
+  <p>
+    Nếu website tự vào dashboard mà không qua trang đăng nhập,
+    hãy bấm nút bên dưới để xóa toàn bộ dữ liệu cũ trong trình duyệt.
+    <br><br>
+    Sau đó bạn sẽ được chuyển về trang đăng nhập.
+  </p>
+  <button class="btn btn-danger" onclick="doClear()">🗑️ Xóa dữ liệu cũ &amp; Đăng xuất</button>
+  <div class="done" id="done">✅ Đã xóa! Đang chuyển về trang đăng nhập...</div>
+  <div class="note">
+    ⚠️ Thao tác này sẽ xóa tất cả dữ liệu sách, người dùng, phiếu mượn đang lưu trong trình duyệt này.
+    Dữ liệu đã đồng bộ lên Google Sheets sẽ không bị ảnh hưởng.
+  </div>
+  <br>
+  <a class="btn btn-primary" href="login.html">↩ Quay về Đăng nhập</a>
+</div>
+<script>
+function doClear() {
+  const keys = [
+    'nhc4_books','nhc4_users','nhc4_borrows','nhc4_docs',
+    'nhc4_pwd','nhc4_auth','nhc4_feedbacks','nhc4_config','nhc4_dbver'
+  ];
+  keys.forEach(k => localStorage.removeItem(k));
+  document.getElementById('done').style.display = 'block';
+  setTimeout(() => location.href = 'login.html', 1500);
+}
+</script>
+</body>
+</html>

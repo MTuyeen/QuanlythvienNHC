@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Trang chủ — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .empty-books{
+      grid-column:1/-1;
+      padding:40px 20px;
+      text-align:center;
+      background:white;
+      border:2px dashed var(--border);
+      border-radius:var(--r-xl);
+      color:var(--text-xs);
+      line-height:2;
+    }
+    .empty-books span{ font-size:40px;display:block;margin-bottom:6px }
+    .book-cover-placeholder{
+      width:100%;height:100%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:48px;
+      background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+    }
+    .empty-side-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  text-align: center;
+}
+.empty-side-state span {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+  </style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('dashboard');
+const U = getCurrentUser();
+
+function render() {
+  const books   = getBooks();
+  const users   = getUsers();
+  const borrows = getBorrows();
+
+  /* ── Thống kê thực — chỉ từ dữ liệu localStorage (đồng bộ GS) ── */
+  const totalBooks     = books.length;
+  const totalQty       = books.reduce((s,b)=>s+b.qty,0);
+  const activeBorrows  = borrows.filter(r=>r.status==='borrowed').length;
+  const overdue        = borrows.filter(r=>r.status==='overdue').length;
+  const approvedUsers  = users.filter(u=>u.status==='approved').length;
+  const pendingUsers   = users.filter(u=>u.status==='pending').length;
+  const myBorrows      = U.role!=='librarian'
+    ? borrows.filter(r=>r.userId===U.id && (r.status==='borrowed'||r.status==='overdue'))
+    : [];
+
+  const statsData = U.role==='librarian'
+    ? [
+        { label:'Đầu sách',   val:totalBooks,    color:'#1E40AF', bg:'#DBEAFE', icon:'📚', sub:'đầu sách'   },
+        { label:'Đang mượn',  val:activeBorrows, color:'#D97706', bg:'#FEF3C7', icon:'📖', sub:'phiếu'      },
+        { label:'Quá hạn',    val:overdue,       color:'#DC2626', bg:'#FEE2E2', icon:'⚠️',  sub:'phiếu'      },
+        { label:'Người dùng', val:approvedUsers, color:'#059669', bg:'#D1FAE5', icon:'👥', sub:'tài khoản'  },
+        { label:'Chờ duyệt',  val:pendingUsers,  color:'#7C3AED', bg:'#EDE9FE', icon:'⏳', sub:'tài khoản'  },
+      ]
+    : [
+        { label:'Đầu sách',       val:totalBooks,          color:'#1E40AF', bg:'#DBEAFE', icon:'📚', sub:'trong thư viện' },
+        { label:'Tôi đang mượn',  val:myBorrows.length,    color:'#D97706', bg:'#FEF3C7', icon:'📖', sub:'cuốn sách'      },
+        { label:'Sách có sẵn',    val:books.filter(b=>b.avail>0).length, color:'#059669', bg:'#D1FAE5', icon:'✅', sub:'có thể mượn'  },
+        { label:'Thể loại',       val:new Set(books.map(b=>b.category)).size, color:'#7C3AED', bg:'#EDE9FE', icon:'🏷️', sub:'thể loại' },
+      ];
+
+  /* ── Sách mới / phổ biến ── */
+  const newBooks     = [...books].sort((a,b)=>b.addedDate.localeCompare(a.addedDate)).slice(0,4);
+  const popularBooks = [...books].sort((a,b)=>(b.bCount||0)-(a.bCount||0)).slice(0,4);
+
+  /* ── Bảng sách đang mượn (HS/GV) ── */
+  const myBorrowTableHtml = (U.role!=='librarian' && myBorrows.length>0) ? `
+  <div>
+    <div class="sec-hd">
+      <h2>📖 Sách tôi đang mượn</h2>
+      <span class="see-all" onclick="location.href='borrow.html'">Xem tất cả</span>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th></tr></thead>
+      <tbody>${myBorrows.map(r=>{
+        const b = books.find(x=>x.id===r.bookId);
+        return `<tr>
+          <td><p class="fw">${esc(b?.title||'—')}</p><small style="color:#9CA3AF">${esc(b?.author||'')}</small></td>
+          <td style="color:#6B7280">${fmtD(r.borrowDate)}</td>
+          <td style="color:${r.status==='overdue'?'#DC2626':'#6B7280'}">${fmtD(r.dueDate)}</td>
+          <td>${statusBadge(r.status)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>` : '';
+
+  /* ── Gợi ý hành động cho thủ thư mới ── */
+  const quickStartHtml = (U.role==='librarian' && totalBooks===0) ? `
+  <div class="card" style="border-left:4px solid #1E3A8A;background:#EFF6FF">
+    <div class="card-hd" style="color:#1E40AF">🚀 Bắt đầu nhanh</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+        <span style="font-size:20px">1️⃣</span>
+        <div><strong>Thêm sách vào thư viện</strong><br><span style="color:#6B7280">Vào trang <a href="books.html" style="color:#1E3A8A;font-weight:600">Sách</a> → nhấn "Thêm sách"</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+        <span style="font-size:20px">2️⃣</span>
+        <div><strong>Duyệt tài khoản học sinh / giáo viên</strong><br><span style="color:#6B7280">Vào <a href="users.html" style="color:#1E3A8A;font-weight:600">Người dùng</a> để duyệt đăng ký</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+        <span style="font-size:20px">3️⃣</span>
+        <div><strong>Lập phiếu mượn</strong><br><span style="color:#6B7280">Vào <a href="borrow.html" style="color:#1E3A8A;font-weight:600">Mượn / Trả</a> → tab "Lập phiếu mượn"</span></div>
+      </div>
+    </div>
+  </div>` : '';
+
+  document.getElementById('content').innerHTML = `
+<div class="page">
+  <div class="page-hd">
+    <h1>👋 Xin chào, ${esc(U.name)}!</h1>
+    <p>Tổng quan hệ thống thư viện THPT Nguyễn Hữu Cảnh</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    ${statsData.map(s=>`
+    <div class="stat-card">
+      <div class="stat-icon" style="background:${s.bg}">${s.icon}</div>
+      <div>
+        <p class="stat-label">${s.label}</p>
+        <p class="stat-val" style="color:${s.color}">${s.val}</p>
+        <p style="font-size:11px;color:#9CA3AF">${s.sub}</p>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  ${quickStartHtml}
+  ${myBorrowTableHtml}
+
+  <!-- Sách mới nhập -->
+  <div>
+    <div class="sec-hd">
+      <h2>🆕 Sách mới nhập</h2>
+      <span class="see-all" onclick="location.href='books.html'">Xem tất cả →</span>
+    </div>
+    ${newBooks.length===0
+      ?`<div class="books-grid"><div class="empty-books"><span>📚</span>Chưa có sách nào trong thư viện<br><small><a href="books.html" style="color:#1E3A8A">Thêm sách đầu tiên</a></small></div></div>`
+      :`<div class="books-grid">${newBooks.map(b=>bookCardHtml(b)).join('')}</div>`}
+  </div>
+
+  <!-- Mượn nhiều nhất -->
+  ${popularBooks.length>0?`
+  <div>
+    <div class="sec-hd"><h2>🔥 Được mượn nhiều nhất</h2></div>
+    <div class="books-grid">${popularBooks.map((b,i)=>bookCardHtml(b,i+1)).join('')}</div>
+  </div>`:''}
+
+  <!-- Thông báo -->
+  <div>
+    <div class="sec-hd"><h2>📢 Tin tức &amp; Thông báo</h2></div>
+    <div class="ann-list">${ANNOUNCEMENTS.map(a=>`
+    <div class="ann-card">
+      <span class="ann-type ann-${a.type}">
+        ${a.type==='notice'?'Thông báo':a.type==='event'?'Sự kiện':'Tin tức'}
+      </span>
+      <div>
+        <p class="ann-title">${esc(a.title)}</p>
+        <p class="ann-body">${esc(a.content)}</p>
+        <p class="ann-date">📅 ${fmtD(a.date)}</p>
+      </div>
+    </div>`).join('')}
+    </div>
+  </div>
+</div>`;
+}
+
+function bookCardHtml(b, rank=0) {
+  const cc = CAT_COLORS[b.category] || CAT_COLORS['Khác'];
+  const hasImg = b.cover && b.cover.startsWith('http');
+  
+  return `
+<div class="book-card" onclick="location.href='books.html'" style="cursor:pointer">
+  <div class="book-cover">
+    ${rank ? `<div class="book-rank">#${rank}</div>` : ''}
+    ${hasImg
+      ? `<img src="${esc(b.cover)}" alt="${esc(b.title)}" loading="lazy" onerror="this.outerHTML='<div class=\\'book-cover-placeholder\\'>📚</div>'">`
+      : `<div class="book-cover-placeholder">📚</div>`}
+    ${b.avail === 0 ? `<div class="book-out-overlay"><span>Hết sách</span></div>` : ''}
+  </div>
+  <div class="book-info">
+    <h3 class="book-title">${esc(b.title)}</h3>
+    <p class="book-author">${esc(b.author)}</p>
+    <div class="book-meta">
+      <span class="book-cat" style="background:${cc}20; color:${cc}">${esc(b.category)}</span>
+      <span class="book-qty">SL: ${b.qty}</span>
+    </div>
+  </div>
+</div>`;
+}
+
+render();
+</script>
+</body>
+</html>

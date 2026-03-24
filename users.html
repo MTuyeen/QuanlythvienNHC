@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Người dùng — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('users', ['librarian']);
+const U = getCurrentUser();
+
+let tabActive  = 'pending';
+let searchQ    = '';
+let showAddUser = false;
+
+function render() {
+  const users = getUsers();
+  const pending  = users.filter(u=>u.status==='pending');
+  const approved = users.filter(u=>u.status==='approved');
+  const rejected = users.filter(u=>u.status==='rejected');
+
+  const q = searchQ.toLowerCase();
+  const tabMap = { all:users, pending, approved, rejected };
+  let list = tabMap[tabActive]||users;
+  if (q) list = list.filter(u=>
+    u.name.toLowerCase().includes(q)||
+    (u.username||'').toLowerCase().includes(q)||
+    (u.studentId||'').toLowerCase().includes(q)||
+    (u.email||'').toLowerCase().includes(q)
+  );
+
+  document.getElementById('content').innerHTML = `
+<div class="page">
+  <div class="page-hd">
+    <h1>👥 Quản lý người dùng</h1>
+    <p>${users.length} tài khoản trong hệ thống · ${pending.length} chờ phê duyệt</p>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon" style="background:#D1FAE5">✅</div><div><p class="stat-label">Đã duyệt</p><p class="stat-val" style="color:#059669">${approved.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7">⏳</div><div><p class="stat-label">Chờ duyệt</p><p class="stat-val" style="color:#D97706">${pending.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2">❌</div><div><p class="stat-label">Từ chối</p><p class="stat-val" style="color:#DC2626">${rejected.length}</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#EDE9FE">👤</div><div><p class="stat-label">Tổng cộng</p><p class="stat-val" style="color:#7C3AED">${users.length}</p></div></div>
+  </div>
+
+  ${pending.length>0?`
+  <div class="card" style="border-left:4px solid #D97706">
+    <div class="card-hd">⏳ ${pending.length} tài khoản đang chờ phê duyệt
+      <div class="card-hd-actions">
+        <button class="btn btn-sm btn-success" onclick="approveAll()">✅ Duyệt tất cả</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${pending.map(u=>pendingCard(u)).join('')}
+    </div>
+  </div>`:''}
+
+  <div class="tab-bar">
+    <button class="tab-btn${tabActive==='all'?' active':''}" onclick="setTab('all')">Tất cả <span class="tab-count">${users.length}</span></button>
+    <button class="tab-btn${tabActive==='pending'?' active':''}" onclick="setTab('pending')">Chờ duyệt <span class="tab-count">${pending.length}</span></button>
+    <button class="tab-btn${tabActive==='approved'?' active':''}" onclick="setTab('approved')">Đã duyệt <span class="tab-count">${approved.length}</span></button>
+    <button class="tab-btn${tabActive==='rejected'?' active':''}" onclick="setTab('rejected')">Từ chối <span class="tab-count">${rejected.length}</span></button>
+  </div>
+
+  <div class="toolbar">
+    <div class="sbox">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Tìm tên, username, mã số, email..." value="${esc(searchQ)}" oninput="searchQ=this.value;render()">
+    </div>
+    <button class="btn btn-primary" onclick="toggleAddUser()">${showAddUser?'✕ Đóng':'➕ Thêm người dùng'}</button>
+  </div>
+
+  ${showAddUser ? addUserFormHtml() : ''}
+
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th>Người dùng</th><th>Username</th><th>Lớp / Mã số</th><th>Vai trò</th><th>Trạng thái</th><th>Ngày ĐK</th><th>Thao tác</th>
+      </tr></thead>
+      <tbody>
+        ${list.length===0?`<tr><td colspan="7" class="empty">Không có người dùng nào</td></tr>`:list.map(u=>userRowHtml(u)).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+function pendingCard(u) {
+  const rc = ROLE_COLOR[u.role]||{bg:'#F3F4F6',c:'#374151'};
+  return `
+<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #FDE68A;border-radius:10px;background:#FFFBEB">
+  <div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${u.name.charAt(0)}</div>
+  <div style="flex:1">
+    <p style="font-weight:600;font-size:13px">${esc(u.name)} <span class="code">${esc(u.username)}</span></p>
+    <p style="font-size:11px;color:#6B7280">${ROLE_LABEL[u.role]||u.role}${u.className?' · Lớp '+u.className:''}${u.studentId?' · '+u.studentId:''} · Đăng ký: ${fmtD(u.createdDate)}</p>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button class="btn btn-sm btn-success" onclick="approve('${u.id}')">✅ Duyệt</button>
+    <button class="btn btn-sm btn-danger"  onclick="reject('${u.id}')">❌ Từ chối</button>
+  </div>
+</div>`;
+}
+
+function userRowHtml(u) {
+  const rc = ROLE_COLOR[u.role]||{bg:'#F3F4F6',c:'#374151'};
+  const isSelf = u.id === U.id;
+  return `<tr>
+    <td><div class="u-cell">
+      <div class="avatar avatar-md" style="background:${rc.bg};color:${rc.c}">${u.name.charAt(0)}</div>
+      <div><p class="fw">${esc(u.name)}${isSelf?' <span style="font-size:10px;color:#1E40AF;background:#DBEAFE;padding:1px 5px;border-radius:4px">Bạn</span>':''}</p>
+      <small style="color:#9CA3AF">${esc(u.email||'—')}</small></div>
+    </div></td>
+    <td><code class="code">${esc(u.username)}</code></td>
+    <td>${u.className?`<span>${esc(u.className)}</span> · `:''}<span style="color:#6B7280">${esc(u.studentId||'—')}</span></td>
+    <td>${roleTag(u.role)}</td>
+    <td>${userStatusBadge(u.status)}</td>
+    <td style="color:#9CA3AF;font-size:12px">${fmtD(u.createdDate)}</td>
+    <td><div class="act">
+      ${!isSelf && u.status!=='approved' ? `<button class="btn btn-sm btn-success" onclick="approve('${u.id}')">✅ Duyệt</button>` : ''}
+      ${!isSelf && u.status!=='rejected' ? `<button class="btn btn-sm btn-danger"  onclick="reject('${u.id}')">❌ Từ chối</button>` : ''}
+      ${!isSelf ? `<button class="btn btn-sm" style="background:#F3F4F6;color:#374151" onclick="resetPwd('${u.id}')">🔑 Reset MK</button>` : ''}
+      
+      ${!isSelf ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}', '${esc(u.username)}')">🗑️ Xóa</button>` : ''}
+    </div></td>
+  </tr>`;
+}
+
+function addUserFormHtml() {
+  return `
+<div class="card" style="max-width:580px">
+  <div class="card-hd">➕ Thêm người dùng mới</div>
+  <form class="frm" onsubmit="handleAddUser(event)">
+    <div class="frm-row">
+      <div class="field"><label>Tên đăng nhập <span class="req">*</span></label><input type="text" id="au-user" placeholder="VD: NguyenVanA" required></div>
+      <div class="field"><label>Họ và tên <span class="req">*</span></label><input type="text" id="au-name" placeholder="Nguyễn Văn A" required></div>
+    </div>
+    <div class="field"><label>Vai trò <span class="req">*</span></label>
+      <select id="au-role">
+        <option value="student">🎓 Học sinh</option>
+        <option value="teacher">👨‍🏫 Giáo viên</option>
+        <option value="librarian">📚 Thủ thư</option>
+      </select>
+    </div>
+    <div class="frm-row">
+      <div class="field"><label>Lớp</label><input type="text" id="au-class" placeholder="VD: 12A1"></div>
+      <div class="field"><label>Mã số</label><input type="text" id="au-id" placeholder="VD: HS12345"></div>
+    </div>
+    <div class="field"><label>Email</label><input type="email" id="au-email" placeholder="email@nhc.edu.vn"></div>
+    <div class="field"><label>Mật khẩu <span class="req">*</span></label><input type="password" id="au-pwd" placeholder="Mật khẩu mặc định" required></div>
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="btn btn-primary">💾 Tạo tài khoản</button>
+      <button type="button" class="btn btn-ghost" onclick="toggleAddUser()">Hủy</button>
+    </div>
+  </form>
+</div>`;
+}
+
+function setTab(t) { tabActive=t; searchQ=''; render(); }
+function toggleAddUser() { showAddUser=!showAddUser; render(); }
+
+function approve(id) {
+  const users = getUsers();
+  const u = users.find(x=>x.id===id);
+  if (!u) return;
+  u.status = 'approved';
+  saveUsers(users);
+  gsPost(GS.USER, { action:'APPROVE', username:u.username, name:u.name, approvedBy:U.name, approvedDate:todayStr() });
+  toast(`✅ Đã duyệt tài khoản: ${u.name}`, 'success');
+  render();
+}
+
+function reject(id) {
+  const users = getUsers();
+  const u = users.find(x=>x.id===id);
+  if (!u) return;
+  if (!confirm(`Từ chối tài khoản "${u.name}" (${u.username})?`)) return;
+  u.status = 'rejected';
+  saveUsers(users);
+  gsPost(GS.USER, { action:'REJECT', username:u.username, name:u.name, rejectedBy:U.name, rejectedDate:todayStr() });
+  toast(`Đã từ chối: ${u.name}`, 'warning');
+  render();
+}
+
+function approveAll() {
+  const users = getUsers();
+  const pend = users.filter(u=>u.status==='pending');
+  if (!pend.length) return;
+  if (!confirm(`Duyệt tất cả ${pend.length} tài khoản đang chờ?`)) return;
+  pend.forEach(u=>{ u.status='approved'; });
+  saveUsers(users);
+  gsPost(GS.USER, { action:'APPROVE_ALL', count:pend.length, approvedBy:U.name, approvedDate:todayStr() });
+  toast(`✅ Đã duyệt ${pend.length} tài khoản`, 'success');
+  render();
+}
+
+function resetPwd(id) {
+  const users = getUsers();
+  const u = users.find(x=>x.id===id);
+  if (!u) return;
+  const newPwd = prompt(`Đặt mật khẩu mới cho "${u.name}" (${u.username}):\n(Để trống = reset về tên đăng nhập)`);
+  if (newPwd === null) return;
+  const p = getPwds();
+  p[u.username] = newPwd.trim()||u.username;
+  savePwds(p);
+  toast(`🔑 Đã đặt lại mật khẩu cho ${u.name}`, 'success');
+}
+
+function handleAddUser(e) {
+  e.preventDefault();
+  const data = {
+    username:  document.getElementById('au-user').value.trim(),
+    name:      document.getElementById('au-name').value.trim(),
+    role:      document.getElementById('au-role').value,
+    className: document.getElementById('au-class').value.trim(),
+    studentId: document.getElementById('au-id').value.trim(),
+    email:     document.getElementById('au-email').value.trim(),
+    password:  document.getElementById('au-pwd').value,
+  };
+  if (!data.username||!data.name||!data.password) { toast('Vui lòng điền đầy đủ (*)','error'); return; }
+  const users = getUsers();
+  if (users.some(u=>u.username.toLowerCase()===data.username.toLowerCase())) { toast('Tên đăng nhập đã tồn tại','error'); return; }
+  const nu = { id:'u'+Date.now(), ...data, status:'approved', createdDate:todayStr() };
+  delete nu.password;
+  users.push(nu);
+  saveUsers(users);
+  const p = getPwds(); p[nu.username]=data.password; savePwds(p);
+  gsPost(GS.USER, { action:'ADD_BY_ADMIN', username:nu.username, name:nu.name, role:ROLE_LABEL[nu.role]||nu.role, addedBy:U.name, addedDate:nu.createdDate });
+  toast(`✅ Đã tạo tài khoản: ${nu.name}`, 'success');
+  showAddUser = false;
+  render();
+}
+
+render();
+function deleteUser(id, username) {
+  if (!confirm(`Bạn có chắc chắn muốn vô hiệu hóa tài khoản "${username}"?`)) return;
+
+  // 1. Cập nhật danh sách User trong máy
+  const users = getUsers();
+  const uIndex = users.findIndex(u => u.id === id);
+  
+  if (uIndex !== -1) {
+    // Đổi tên username cũ để không bị trùng khi người khác đăng ký lại
+    const oldUsername = users[uIndex].username;
+    users[uIndex].username = oldUsername + '_deleted_' + Date.now();
+    users[uIndex].status = 'deleted'; // Ghi nhận trạng thái đã xóa
+    saveUsers(users);
+
+    // 2. Xóa mật khẩu của username cũ để giải phóng nó
+    const pwds = getPwds();
+    if (pwds[oldUsername]) {
+      delete pwds[oldUsername];
+      savePwds(pwds);
+    }
+
+    // 3. Gửi thông báo lên Google Sheets
+    gsPost(GS.USER, { 
+      action: 'SOFT_DELETE_USER', 
+      targetId: id,
+      username: oldUsername,
+      deletedBy: U.name
+    });
+
+    toast(`Đã vô hiệu hóa tài khoản ${oldUsername}`, 'success');
+    render();
+  }
+}
+</script>
+</body>
+</html>

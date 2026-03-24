@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tài liệu — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content" id="content"></main>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+initPage('documents', ['teacher','librarian']);
+const U = getCurrentUser();
+
+const DOC_CATS = ['Đề thi','Sách điện tử','Tài liệu tham khảo','Bài giảng','Giáo án','Khác'];
+const DOC_SUBJECTS = ['Toán','Ngữ văn','Tiếng Anh','Vật lý','Hóa học','Sinh học','Lịch sử','Địa lý','GDCD','Khác'];
+
+let catFilter = 'all';
+let subjectFilter = 'all';
+let searchQ = '';
+let showUpload = true;
+
+function render() {
+  const docs = getDocs();
+  let filtered = docs;
+  const q = searchQ.toLowerCase();
+  if (q) filtered = filtered.filter(d=>d.title.toLowerCase().includes(q)||(d.subject||'').toLowerCase().includes(q)||(d.uploaderName||'').toLowerCase().includes(q));
+  if (catFilter!=='all') filtered = filtered.filter(d=>d.cat===catFilter);
+  if (subjectFilter!=='all') filtered = filtered.filter(d=>d.subject===subjectFilter);
+  filtered = filtered.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const cats = ['all',...DOC_CATS];
+
+  document.getElementById('content').innerHTML = `
+<div class="page">
+  <div class="page-hd">
+    <h1>📄 Tài liệu &amp; Đề thi</h1>
+    <p>Chia sẻ tài liệu, đề thi, bài giảng dùng chung</p>
+  </div>
+
+  <!-- Upload panel -->
+  <div class="upload-panel">
+    <div class="upload-hd">
+      <div class="upload-hd-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      </div>
+      <div>
+        <h3>Tải lên tài liệu</h3>
+        <p>PDF, Word, PowerPoint, Excel — tối đa 8MB/file. Lưu trữ tại thiết bị này (localStorage).</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="showUpload=!showUpload;render()">${showUpload?'▲ Thu gọn':'▼ Mở rộng'}</button>
+    </div>
+    ${showUpload?`
+    <form class="frm" onsubmit="handleUpload(event)">
+      <div class="frm-row">
+        <div class="field"><label>Tên tài liệu <span class="req">*</span></label>
+          <input type="text" id="dt" placeholder="VD: Đề thi HK1 Toán 12 (2025-2026)" required>
+        </div>
+        <div class="field"><label>Danh mục</label>
+          <select id="dc">${DOC_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="frm-row">
+        <div class="field"><label>Môn học</label>
+          <select id="ds">${DOC_SUBJECTS.map(s=>`<option>${s}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>Năm học</label>
+          <input type="text" id="dy" placeholder="VD: 2025-2026">
+        </div>
+      </div>
+      <div class="field"><label>Chọn file <span class="req">*</span></label>
+        <input type="file" id="df" accept=".pdf,.doc,.docx,.pptx,.ppt,.xlsx,.xls,.txt,.png,.jpg" required>
+        <small>Định dạng: PDF, Word, PowerPoint, Excel, Text, Hình ảnh</small>
+      </div>
+      <div class="field"><label>Mô tả</label>
+        <input type="text" id="dd" placeholder="Ghi chú thêm về tài liệu...">
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-upload">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16,16 12,12 8,16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+        Tải lên tài liệu
+      </button>
+    </form>` : ''}
+  </div>
+
+  <!-- Filter + Search -->
+  <div class="toolbar">
+    <div class="sbox">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Tìm tên, môn học, người tải..." value="${esc(searchQ)}" oninput="searchQ=this.value;render()">
+    </div>
+    <select style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);background:white;font-size:13px;outline:none" onchange="subjectFilter=this.value;render()">
+      <option value="all">Tất cả môn</option>
+      ${DOC_SUBJECTS.map(s=>`<option value="${s}"${subjectFilter===s?' selected':''}>${s}</option>`).join('')}
+    </select>
+  </div>
+
+  <div class="filter-tabs">
+    ${cats.map(c=>`
+    <button class="ftab${catFilter===c?' active':''}" onclick="catFilter='${c}';render()">
+      ${c==='all'?`Tất cả (${docs.length})`:c}
+    </button>`).join('')}
+  </div>
+
+  <!-- Document list -->
+  <div id="doc-list">
+    ${filtered.length===0
+      ?`<div class="empty-state">📄 Chưa có tài liệu nào${catFilter!=='all'?' trong mục này':''}<br><small>Hãy tải lên tài liệu đầu tiên!</small></div>`
+      :`<div class="doc-list">${filtered.map(d=>docItemHtml(d)).join('')}</div>`}
+  </div>
+</div>`;
+}
+
+function docItemHtml(d) {
+  const canDelete = U.role==='librarian' || d.uploaderId===U.id;
+  const ext = (d.filename||'').split('.').pop()?.toUpperCase()||'';
+  const extColors = { PDF:'#FEE2E2//#DC2626', DOC:'#DBEAFE//#1E40AF', DOCX:'#DBEAFE//#1E40AF', PPT:'#FED7AA//#EA580C', PPTX:'#FED7AA//#EA580C', XLS:'#D1FAE5//#059669', XLSX:'#D1FAE5//#059669', TXT:'#F3F4F6//#374151' };
+  const [ebg,ec] = (extColors[ext]||'#EDE9FE//#5B21B6').split('//');
+  return `
+<div class="doc-item">
+  <div class="doc-icon">${docIcon(d.filename)}</div>
+  <div class="doc-body">
+    <p class="doc-title">${esc(d.title)}</p>
+    <div class="doc-meta">
+      <span class="badge" style="background:${ebg};color:${ec}">${ext||'FILE'}</span>
+      ${d.cat?`<span class="cat-tag" style="background:#EDE9FE;color:#5B21B6">${esc(d.cat)}</span>`:''}
+      ${d.subject?`<span class="badge badge-blue">📐 ${esc(d.subject)}</span>`:''}
+      ${d.year?`<span>📅 ${esc(d.year)}</span>`:''}
+      <span>${fmtSz(d.size)}</span>
+      <span>👤 ${esc(d.uploaderName||'')}</span>
+      <span>🗓 ${fmtD(d.date)}</span>
+    </div>
+    ${d.desc?`<p style="font-size:12px;color:#6B7280;margin-top:4px">${esc(d.desc)}</p>`:''}
+  </div>
+  <div class="doc-acts">
+    <button class="btn btn-sm btn-success" onclick="downloadDoc('${d.id}')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8,17 12,21 16,17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg> Tải về
+    </button>
+    ${canDelete?`<button class="btn btn-sm btn-danger" onclick="deleteDoc('${d.id}')">🗑️</button>`:''}
+  </div>
+</div>`;
+}
+
+function handleUpload(e) {
+  e.preventDefault();
+  const title   = document.getElementById('dt').value.trim();
+  const cat     = document.getElementById('dc').value;
+  const subject = document.getElementById('ds').value;
+  const year    = document.getElementById('dy').value.trim();
+  const desc    = document.getElementById('dd').value.trim();
+  const file    = document.getElementById('df').files?.[0];
+
+  if (!title) { toast('Vui lòng nhập tên tài liệu','error'); return; }
+  if (!file)  { toast('Vui lòng chọn file','error'); return; }
+  if (file.size > 8*1024*1024) { toast('File quá lớn! Tối đa 8MB','error'); return; }
+
+  const btn = document.getElementById('btn-upload');
+  btn.disabled = true; btn.textContent = 'Đang tải...';
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const doc = {
+      id: uid(), title, cat, subject, year, desc, filename: file.name,
+      size: file.size, type: file.type, data: ev.target.result,
+      uploaderId: U.id, uploaderName: U.name, date: todayStr(),
+    };
+    const docs = getDocs();
+    docs.push(doc);
+    saveDocs(docs);
+    // Gửi lên GS BOOK sheet (tài liệu dùng chung sheet sách hoặc có thể dùng sheet riêng)
+    gsPost(GS.BOOK, { action:'UPLOAD_DOC', title, cat, subject, year, filename:file.name, uploaderName:U.name, uploadDate:doc.date, role:ROLE_LABEL[U.role]||U.role });
+    toast(`✅ Đã tải lên: "${title}"`, 'success');
+    btn.disabled = false; btn.textContent = '⬆ Tải lên tài liệu';
+    render();
+  };
+  reader.onerror = () => { toast('Lỗi đọc file','error'); btn.disabled=false; btn.textContent='⬆ Tải lên tài liệu'; };
+  reader.readAsDataURL(file);
+}
+
+function downloadDoc(id) {
+  const doc = getDocs().find(x=>x.id===id);
+  if (!doc?.data) { toast('Không tìm thấy dữ liệu file','error'); return; }
+  const a = document.createElement('a');
+  a.href = doc.data; a.download = doc.filename || doc.title; a.click();
+  toast(`📥 Đang tải: "${doc.title}"`, 'info');
+}
+
+function deleteDoc(id) {
+  const doc = getDocs().find(x=>x.id===id);
+  if (!doc) return;
+  if (!confirm(`Xóa tài liệu "${doc.title}"?\nThao tác không thể hoàn tác.`)) return;
+  saveDocs(getDocs().filter(x=>x.id!==id));
+  toast(`Đã xóa: "${doc.title}"`, 'success');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
