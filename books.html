@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -34,6 +34,8 @@ function render() {
   if (q) filtered = filtered.filter(b=>b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q));
   if (catFilter!=='all') filtered = filtered.filter(b=>b.category===catFilter);
 
+  const borrows = getBorrows();
+
   document.getElementById('content').innerHTML = `
 <div class="page">
   <div class="page-hd">
@@ -57,16 +59,14 @@ function render() {
 
   <div id="books-grid" class="books-grid">
     ${filtered.length===0
-      ? (books.length===0
-        ?`<div class="empty-books" style="grid-column:1/-1;padding:48px;text-align:center;background:white;border:2px dashed var(--border);border-radius:var(--r-xl);color:var(--text-xs)">
+      ? `<div class="empty-books" style="grid-column:1/-1;padding:48px;text-align:center;background:white;border:2px dashed var(--border);border-radius:var(--r-xl);color:var(--text-xs)">
             <p style="font-size:40px;margin-bottom:8px">📚</p>
-            <p style="font-size:15px;font-weight:600;color:var(--text-m);margin-bottom:4px">Thư viện chưa có sách nào</p>
-            ${isLib?'<p>Nhấn <strong>➕ Thêm sách</strong> để bắt đầu thêm sách vào thư viện</p>':'<p>Thủ thư chưa thêm sách vào hệ thống</p>'}
+            <p style="font-size:15px;font-weight:600;color:var(--text-m);margin-bottom:4px">Không tìm thấy sách phù hợp</p>
           </div>`
-        :`<div class="empty-books" style="grid-column:1/-1;padding:32px;text-align:center;background:white;border:1px solid var(--border);border-radius:var(--r-xl);color:var(--text-xs)">
-            📭 Không tìm thấy sách phù hợp với từ khóa "<strong>${esc(searchQ||catFilter)}</strong>"
-          </div>`)
-      : filtered.map(b=>bookCardHtml(b)).join('')}
+      : filtered.map(b => {
+          const myActive = U.role !== 'librarian' && borrows.some(r => r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'));
+          return bookCardHtml(b, myActive);
+        }).join('')}
   </div>
 </div>`;
 
@@ -75,7 +75,7 @@ function render() {
 
 function addFormHtml() {
   return `
-<div class="card" style="max-width:620px">
+<div class="card" style="max-width:620px;margin-bottom:20px">
   <div class="card-hd">➕ Thêm sách mới</div>
   <form class="frm" onsubmit="handleAddBook(event)">
     <div class="frm-row">
@@ -91,13 +91,11 @@ function addFormHtml() {
     <div class="field"><label>Nhà xuất bản</label><input type="text" id="ab-pub" placeholder="NXB Giáo dục..."></div>
     <div class="field"><label>Ảnh bìa (URL)</label>
       <input type="text" id="ab-cover" placeholder="https://images.unsplash.com/...">
-      <small>Để trống sẽ dùng ảnh mặc định. Gợi ý: dùng unsplash.com hoặc drive.google.com</small>
     </div>
     <div class="field"><label>Tài liệu PDF (Link đọc online)</label>
-      <input type="text" id="ab-pdf" placeholder="https://drive.google.com/file/d/...">
-      <small>Dán link Google Drive hoặc link PDF trực tiếp để đọc online.</small>
+      <input type="text" id="ab-pdf" placeholder="Dán link PDF hoặc Google Drive...">
     </div>
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px;margin-top:10px">
       <button type="submit" class="btn btn-primary">💾 Lưu sách</button>
       <button type="button" class="btn btn-ghost" onclick="toggleAddForm()">Hủy</button>
     </div>
@@ -105,18 +103,24 @@ function addFormHtml() {
 </div>`;
 }
 
-function bookCardHtml(b) {
-  // ... code cũ ...
+function bookCardHtml(b, myActive) {
+  const cc = (typeof CAT_COLORS !== 'undefined' && CAT_COLORS[b.category]) || {bg:'#F3F4F6', c:'#374151'};
   return `
   <div class="book-card">
+    <div class="book-cover">
+      <img src="${esc(b.cover || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80')}" alt="${esc(b.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Cover'">
+      ${b.avail === 0 ? `<div class="book-out-overlay"><span>Hết sách</span></div>` : ''}
+    </div>
     <div class="book-info">
+      <p class="book-title">${esc(b.title)}</p>
+      <p class="book-author">${esc(b.author)}</p>
+      <div class="book-meta">
+        <span class="cat-tag" style="background:${cc.bg};color:${cc.c}">${esc(b.category)}</span>
+        <span class="book-avail">Còn ${b.avail}/${b.qty}</span>
+      </div>
       <div class="book-actions">
-        ${b.avail>0 && !myActive ? `<button class="btn btn-sm" ...>📖 Mượn</button>` : ''}
-        
-        ${b.pdf ? `<a href="${esc(b.pdf)}" target="_blank" class="btn btn-sm" 
-                   style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">
-                   👁️ Đọc online</a>` : ''}
-        
+        ${b.avail > 0 && !myActive ? `<button class="btn btn-sm" onclick="borrowBook('${b.id}')">📖 Mượn</button>` : ''}
+        ${b.pdf ? `<a href="${esc(b.pdf)}" target="_blank" class="btn btn-sm" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">👁️ Đọc online</a>` : ''}
         ${isLib ? `<button class="btn btn-sm btn-danger" onclick="deleteBook('${b.id}')">🗑️</button>` : ''}
       </div>
     </div>
@@ -129,12 +133,21 @@ function toggleAddForm() { showAddForm=!showAddForm; render(); }
 
 function renderGrid() {
   const books = getBooks();
+  const borrows = getBorrows();
   const q = searchQ.toLowerCase();
   let filtered = books;
   if (q) filtered = filtered.filter(b=>b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q));
   if (catFilter!=='all') filtered = filtered.filter(b=>b.category===catFilter);
+  
   const grid = document.getElementById('books-grid');
-  if (grid) grid.innerHTML = filtered.length===0?'<div class="empty-state">📚 Không tìm thấy sách nào</div>':filtered.map(b=>bookCardHtml(b)).join('');
+  if (grid) {
+    grid.innerHTML = filtered.length === 0 
+      ? '<div class="empty-books" style="grid-column:1/-1;padding:32px;text-align:center;">📭 Không tìm thấy sách phù hợp</div>' 
+      : filtered.map(b => {
+          const myActive = U.role !== 'librarian' && borrows.some(r => r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'));
+          return bookCardHtml(b, myActive);
+        }).join('');
+  }
 }
 
 function handleAddBook(e) {
@@ -145,41 +158,19 @@ function handleAddBook(e) {
   const qty    = parseInt(document.getElementById('ab-qty').value)||1;
   const pub    = document.getElementById('ab-pub').value.trim();
   const cover  = document.getElementById('ab-cover').value.trim();
-  const pdf    = document.getElementById('ab-pdf').value.trim(); // Thêm dòng này
+  const pdf    = document.getElementById('ab-pdf').value.trim();
 
   if (!title || !author) { toast('Vui lòng nhập tiêu đề và tác giả','error'); return; }
   
   const books = getBooks();
   const b = { 
-    id:'b'+Date.now(), 
-    title, 
-    author, 
-    category:cat||'Khác', 
-    qty, 
-    avail:qty, 
-    publisher:pub,
+    id:'b'+Date.now(), title, author, category:cat||'Khác', qty, avail:qty, publisher:pub,
     cover:cover||'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80',
-    pdf: pdf, // Thêm dòng này để lưu link PDF
-    addedDate:todayStr(), 
-    bCount:0 
+    pdf: pdf, addedDate:todayStr(), bCount:0 
   };
-
   books.push(b);
   saveBooks(books);
-
-  // Gửi lên GS BOOK sheet (nhớ thêm pdf vào payload)
-  gsPost(GS.BOOK, { 
-    action:'ADD_BOOK', 
-    title:b.title, 
-    author:b.author, 
-    category:b.category, 
-    qty:b.qty, 
-    publisher:b.publisher||'', 
-    pdf: b.pdf, // Thêm dòng này
-    addedDate:b.addedDate, 
-    addedBy:U.name 
-  });
-
+  gsPost(GS.BOOK, { action:'ADD_BOOK', title:b.title, author:b.author, category:b.category, qty:b.qty, publisher:b.publisher||'', pdf: b.pdf, addedDate:b.addedDate, addedBy:U.name });
   toast(`Đã thêm sách: "${b.title}"`, 'success');
   showAddForm = false;
   render();
@@ -188,15 +179,13 @@ function handleAddBook(e) {
 function deleteBook(id) {
   const books = getBooks();
   const b = books.find(x=>x.id===id);
-  if (!b) return;
-  if (!confirm(`Xóa sách "${b.title}"?\nThao tác này không thể hoàn tác.`)) return;
+  if (!b || !confirm(`Xóa sách "${b.title}"?`)) return;
   saveBooks(books.filter(x=>x.id!==id));
   toast(`Đã xóa sách: "${b.title}"`, 'success');
   render();
 }
 
 function borrowBook(bookId) {
-  // Redirect sang trang mượn trả, truyền bookId qua sessionStorage
   sessionStorage.setItem('quick_borrow_book', bookId);
   location.href = 'borrow.html';
 }
