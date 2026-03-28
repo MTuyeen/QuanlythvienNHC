@@ -55,14 +55,13 @@ const ANNOUNCEMENTS = [
 ];
 
 const CAT_COLORS = {
-  'Văn học':   { bg:'#FEF3C7', c:'#92400E' },
-  'Toán học':  { bg:'#DBEAFE', c:'#1E40AF' },
-  'Lịch sử':   { bg:'#FCE7F3', c:'#9D174D' },
-  'Vật lý':    { bg:'#D1FAE5', c:'#065F46' },
-  'Hóa học':   { bg:'#EDE9FE', c:'#5B21B6' },
-  'Ngoại ngữ': { bg:'#FEE2E2', c:'#991B1B' },
-  'Sinh học':  { bg:'#D1FAE5', c:'#065F46' },
-  'Địa lý':    { bg:'#FEF3C7', c:'#78350F' },
+  'SGK10':   { bg:'#FEF3C7', c:'#92400E' },
+  'SGK11':  { bg:'#DBEAFE', c:'#1E40AF' },
+  'SGK12':   { bg:'#FCE7F3', c:'#9D174D' },
+  'Truyện ngắn':    { bg:'#D1FAE5', c:'#065F46' },
+  'Tiểu Thuyết':   { bg:'#EDE9FE', c:'#5B21B6' },
+  'Truyện tranh': { bg:'#FEE2E2', c:'#991B1B' },
+  'Kỹ năng sống':  { bg:'#D1FAE5', c:'#065F46' },
   'Khác':      { bg:'#F3F4F6', c:'#374151' },
 };
 
