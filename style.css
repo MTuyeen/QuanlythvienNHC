@@ -615,3 +615,19 @@ input[type="date"]:focus{border-color:var(--primary)}
   margin-top: 3px;
   min-height: 16px;
 }
+.sb-logo-img {
+    width: 45px;          /* Độ rộng bằng logo cũ */
+    height: 45px;         /* Chiều cao bằng logo cũ */
+    object-fit: cover;    /* Giúp ảnh không bị méo khi ép vào hình vuông */
+    border-radius: 8px;   /* Bo góc một chút cho đẹp */
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* Căn chỉnh lại khung chứa logo nếu cần */
+.sb-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+}

@@ -284,8 +284,8 @@ function renderLayout(u, pageId) {
 
   <!-- Header logo -->
   <div class="sb-header">
-    <img src="school-logo.png" alt="NHC Logo" class="sb-logo"
-      onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=\\'sb-logo-fb\\'>📚</div>';  };">
+    <img src="unnamed.jpg" alt="Logo" class="sb-logo-img"
+      onerror="this.onerror=null;this.outerHTML='<div class=\\'sb-logo-fb\\'>📚</div>';">
     <div>
       <p class="sb-title">Thư viện NHC</p>
       <p class="sb-sub">Kết nối tri thức</p>
