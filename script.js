@@ -1,12 +1,12 @@
 'use strict';
 /* ════════════════════════════════════════════════════════════════
-   Thư viện THPT Nguyễn Hữu Cảnh — Core Script (dùng chung mọi trang)
+   Thư viện THPT Nguyễn Hữu Cảnh — Core Script (ĐÃ SỬA ĐỒNG BỘ)
    ════════════════════════════════════════════════════════════════ */
 
 // ── PHIÊN BẢN DỮ LIỆU ────────────────────────────────────────
 const DB_VERSION = 'nhc4_v3_2026';
 
-const WebApp_URL = 'https://script.google.com/macros/s/AKfycbyphotpZodqj8l0qQ9fHoTnPNmw5T1yj-oYVUGMp0k2wbvZno8Pb4OPOCu2f0jcJtCu/exec';
+const WebApp_URL = 'https://script.google.com/macros/s/AKfycbzKBrlZFAeGopeheSDazumUdIov4lnG19inA7V5_5QydxKn3QAYXyYr_fgco5EAgVeZvA/exec';
 
 const GS = {
   USER:     WebApp_URL,
@@ -72,7 +72,6 @@ const ROLE_COLOR  = {
   librarian: { bg:'#EDE9FE', c:'#5B21B6' },
 };
 
-// ── TIÊU ĐỀ TRANG (bao gồm cả rules) ─────────────────────────
 const PAGE_TITLE = {
   dashboard : 'Trang chủ',
   books     : 'Quản lý sách',
@@ -82,7 +81,7 @@ const PAGE_TITLE = {
   users     : 'Người dùng',
   feedback  : 'Phản hồi',
   settings  : 'Cài đặt',
-  finance   : 'Quản lý Tài chính',  // ← THÊM MỚI
+  finance   : 'Quản lý Tài chính',
 };
 
 const NAV = [
@@ -92,7 +91,7 @@ const NAV = [
   { id:'rules',     icon:'📜', label:'Nội quy',     file:'rules.html',     roles:['student','teacher','librarian'] },
   { id:'documents', icon:'📄', label:'Tài liệu',    file:'documents.html', roles:['teacher','librarian'] },
   { id:'users',     icon:'👥', label:'Người dùng',  file:'users.html',     roles:['librarian'] },
-  { id:'finance',   icon:'💰', label:'Quản lý Tài chính', file:'finance.html', roles:['librarian'] }, // ← THÊM MỚI
+  { id:'finance',   icon:'💰', label:'Quản lý Tài chính', file:'finance.html', roles:['librarian'] },
   { id:'feedback',  icon:'💬', label:'Phản hồi',    file:'feedback.html',  roles:['student','teacher','librarian'] },
   { id:'settings',  icon:'⚙️', label:'Cài đặt',     file:'settings.html',  roles:['librarian'] },
 ];
@@ -115,11 +114,75 @@ function getPwds()    {
   return { MTuyeen: '123' };
 }
 
-function saveBooks(v)   { db.set(K.BOOKS,   v); }
-function saveUsers(v)   { db.set(K.USERS,   v); }
-function saveBorrows(v) { db.set(K.BORROWS, v); }
+function saveBooks(v)   { db.set(K.BOOKS,   v); syncBooksToCloud(v); }
+function saveUsers(v)   { db.set(K.USERS,   v); syncUsersToCloud(v); }
+function saveBorrows(v) { db.set(K.BORROWS, v); syncBorrowsToCloud(v); }
 function saveDocs(v)    { db.set(K.DOCS,    v); }
 function savePwds(p)    { db.set(K.PWD,     p); }
+
+// ══════════════════════════════════════════════════════════════
+// ĐỒN BỘ DỮ LIỆU VỚI GOOGLE SHEETS (MỚI)
+// ══════════════════════════════════════════════════════════════
+
+// ── Đọc dữ liệu từ Google Sheets ──
+function gsGet(action) {
+  return fetch(WebApp_URL + '?action=' + action)
+    .then(r => r.json())
+    .catch(err => {
+      console.warn('gsGet error:', err);
+      const b = document.getElementById('offline-badge');
+      if (b) b.classList.add('show');
+      return { success: false, data: [] };
+    });
+}
+
+// ── Đồng bộ TẤT CẢ dữ liệu từ cloud về local (gọi khi mở trang) ──
+function syncFromCloud(callback) {
+  gsGet('GET_ALL').then(result => {
+    if (result && result.success) {
+      // Chỉ ghi đè nếu cloud có dữ liệu
+      if (result.books && result.books.length > 0) {
+        db.set(K.BOOKS, result.books);
+      }
+      if (result.users && result.users.length > 0) {
+        db.set(K.USERS, result.users);
+      }
+      if (result.borrows && result.borrows.length > 0) {
+        db.set(K.BORROWS, result.borrows);
+      }
+      if (result.finance && result.finance.length > 0) {
+        db.set(K.FINANCE, result.finance);
+      }
+
+      const b = document.getElementById('offline-badge');
+      if (b) b.classList.remove('show');
+
+      console.log('✅ Đã đồng bộ dữ liệu từ cloud');
+      toast('Đã đồng bộ dữ liệu', 'success');
+    } else {
+      console.warn('⚠️ Không thể đồng bộ, dùng dữ liệu local');
+    }
+    if (callback) callback();
+  }).catch(() => {
+    console.warn('⚠️ Offline - dùng dữ liệu local');
+    if (callback) callback();
+  });
+}
+
+// ── Ghi sách lên cloud ──
+function syncBooksToCloud(books) {
+  gsPost(WebApp_URL, { action: 'SAVE_BOOKS', books: books });
+}
+
+// ── Ghi users lên cloud ──
+function syncUsersToCloud(users) {
+  gsPost(WebApp_URL, { action: 'SAVE_USERS', users: users });
+}
+
+// ── Ghi borrows lên cloud ──
+function syncBorrowsToCloud(borrows) {
+  gsPost(WebApp_URL, { action: 'SAVE_BORROWS', borrows: borrows });
+}
 
 // ── AUTH ──────────────────────────────────────────────────────
 function getCurrentUser() {
@@ -162,23 +225,20 @@ function doRegister(data) {
   users.push(nu);
   saveUsers(users);
   const p = getPwds(); p[nu.username] = data.password; savePwds(p);
-  gsPost(GS.USER, {
-    action:'REGISTER', username:nu.username, name:nu.name, email:nu.email,
-    studentId:nu.studentId, className:nu.className, role:ROLE_LABEL[nu.role]||nu.role,
-    status:'Chờ duyệt', registerDate:nu.createdDate,
-  });
   return 'success';
 }
 
-// ── GOOGLE SHEETS ─────────────────────────────────────────────
+// ── GOOGLE SHEETS POST ────────────────────────────────────────
 function gsPost(url, payload) {
   fetch(url, {
-    method:'POST', mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(payload),
-  }).then(() => {
-    const b = document.getElementById('offline-badge');
-    if (b) b.classList.remove('show');
+  }).then(r => r.json()).then(res => {
+    if (res.success) {
+      const b = document.getElementById('offline-badge');
+      if (b) b.classList.remove('show');
+    }
   }).catch(() => {
     const b = document.getElementById('offline-badge');
     if (b) b.classList.add('show');
@@ -230,33 +290,36 @@ function roleTag(role) {
   return `<span class="role-tag" style="background:${rc.bg};color:${rc.c}">${ROLE_LABEL[role]||role}</span>`;
 }
 
-// ── LOGO HTML helper (thử PNG → SVG → emoji fallback) ─────────
+// ── LOGO HTML helper ──────────────────────────────────────────
 function logoImgHtml(cls, size=40, extraStyle='') {
-  return `<img src="school-logo.png" alt="Logo NHC" class="${cls}"
+  return `<img src="unnamed.jpg" alt="Logo NHC" class="${cls}"
     style="${extraStyle}"
-    onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=&quot;${cls === 'sb-logo' ? 'sb-logo-fb' : 'll-logo-fb'}&quot;>📚</div>';};">`;
+    onerror="this.onerror=null;this.outerHTML='<div class=&quot;${cls === 'sb-logo' ? 'sb-logo-fb' : 'll-logo-fb'}&quot;>📚</div>';">`;
 }
 
-// ── PAGE INIT ─────────────────────────────────────────────────
-// QUAN TRỌNG: initPage(pageId) → renderLayout(u, pageId) — đúng thứ tự tham số
+// ── PAGE INIT (ĐÃ SỬA: tự đồng bộ khi mở trang) ────────────
 function initPage(pageId, allowed=[]) {
   const u = getCurrentUser();
   if (!u) { location.replace('login.html'); return; }
   if (allowed.length && !allowed.includes(u.role)) { location.replace('dashboard.html'); return; }
   renderLayout(u, pageId);
+
+  // ★ TỰ ĐỘNG ĐỒNG BỘ DỮ LIỆU TỪ CLOUD KHI MỞ TRANG ★
+  syncFromCloud(function() {
+    // Gọi lại hàm render của trang nếu có (để cập nhật UI với dữ liệu mới)
+    if (typeof onSyncComplete === 'function') {
+      onSyncComplete();
+    }
+  });
 }
 
 // ── SIDEBAR + TOPBAR ──────────────────────────────────────────
-// Tham số: u = user object, pageId = chuỗi id trang (vd: 'dashboard', 'rules', ...)
 function renderLayout(u, pageId) {
   const pending = getUsers().filter(x => x.status === 'pending').length;
-
-  // Thông tin người dùng (an toàn với giá trị undefined)
   const userName      = u.name  || 'Người dùng';
   const userRole      = u.role  || 'student';
   const userRoleLabel = ROLE_LABEL[userRole] || userRole;
 
-  // Helper: tạo link nav với đúng class CSS
   function navLink(href, id, icon, label) {
     const active = pageId === id;
     return `
@@ -267,7 +330,6 @@ function renderLayout(u, pageId) {
     </a>`;
   }
 
-  // Helper đặc biệt: link nav với badge "Mới" + màu vàng gold (dùng cho Tài chính)
   function navLinkSpecial(href, id, icon, label, badge) {
     const active = pageId === id;
     return `
@@ -281,8 +343,6 @@ function renderLayout(u, pageId) {
 
   const sidebarHtml = `
 <aside class="sidebar" id="sidebar">
-
-  <!-- Header logo -->
   <div class="sb-header">
     <img src="unnamed.jpg" alt="Logo" class="sb-logo-img"
       onerror="this.onerror=null;this.outerHTML='<div class=\\'sb-logo-fb\\'>📚</div>';">
@@ -291,8 +351,6 @@ function renderLayout(u, pageId) {
       <p class="sb-sub">Kết nối tri thức</p>
     </div>
   </div>
-
-  <!-- Navigation -->
   <nav class="sb-nav">
     ${navLink('dashboard.html', 'dashboard', '📊', 'Tổng quan')}
     ${navLink('books.html',     'books',     '📚', 'Kho sách')}
@@ -310,8 +368,6 @@ function renderLayout(u, pageId) {
     ${navLinkSpecial('finance.html', 'finance', '💰', 'Tài chính', 'Mới')}
     ${navLink('settings.html', 'settings', '⚙️', 'Cài đặt')}` : ''}
   </nav>
-
-  <!-- User footer -->
   <div class="sb-user">
     <div class="sb-avatar">${esc((userName).charAt(0))}</div>
     <div style="flex:1;min-width:0">
@@ -320,7 +376,6 @@ function renderLayout(u, pageId) {
     </div>
     <span class="sb-logout" title="Đăng xuất" onclick="confirmLogout()">🚪</span>
   </div>
-
 </aside>`;
 
   const topbarHtml = `
@@ -337,18 +392,18 @@ function renderLayout(u, pageId) {
               title="${pending} tài khoản chờ duyệt" style="color:#D97706">
               🔔<span class="dot"></span>
             </button>` : ''}
+    <button class="icon-btn" onclick="syncFromCloud(function(){location.reload();})"
+            title="Đồng bộ dữ liệu">🔄</button>
   </div>
 </header>`;
 
   const sbCnt = document.getElementById('sidebar-cnt');
   const tbCnt = document.getElementById('topbar-cnt');
-
   if (sbCnt) sbCnt.innerHTML = sidebarHtml + `<div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar()"></div>`;
   if (tbCnt) tbCnt.innerHTML = topbarHtml;
 }
 
 function toggleSidebar() {
-  // Tìm sidebar theo id (id="sidebar" được đặt trong renderLayout)
   const sb = document.getElementById('sidebar');
   const bd = document.getElementById('sb-backdrop');
   if (sb) sb.classList.toggle('open');
@@ -358,8 +413,8 @@ function toggleSidebar() {
 function confirmLogout() {
   if (confirm('Bạn có chắc muốn đăng xuất không?')) doLogout();
 }
+
 function getFinance(cb) {
-  // Lấy từ localStorage (dữ liệu mock hoặc đã được cập nhật)
   const data = db.get(K.FINANCE, []);
   if (cb) cb(data);
 }
@@ -370,12 +425,10 @@ function updatePaymentStatus(id) {
   db.set(K.FINANCE, updated);
 }
 
-// ── TẠO ĐƠN PHẠT MỚI ─────────────────────────────────────────
 function createFine(fineData) {
   const data = db.get(K.FINANCE, []);
-  data.unshift(fineData);           // thêm vào đầu danh sách
+  data.unshift(fineData);
   db.set(K.FINANCE, data);
-  // Đồng bộ lên Google Sheets (fire-and-forget)
   gsPost(GS.Finance, {
     action:    'CREATE_FINE',
     id:        fineData.id,
