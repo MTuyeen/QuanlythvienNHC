@@ -6,18 +6,21 @@
 // ── PHIÊN BẢN DỮ LIỆU ────────────────────────────────────────
 const DB_VERSION = 'nhc4_v3_2026';
 
-const WebApp_URL = 'https://script.google.com/macros/s/AKfycbzj7-Ex9GqOf5DzRt0QnVZXL58mLZciCUQ9bul-UVCU7pGEgqhBynXEURzxGzHvElnDjg/exec';
+const WebApp_URL = 'https://script.google.com/macros/s/AKfycbyphotpZodqj8l0qQ9fHoTnPNmw5T1yj-oYVUGMp0k2wbvZno8Pb4OPOCu2f0jcJtCu/exec';
 
 const GS = {
   USER:     WebApp_URL,
   BOOK:     WebApp_URL,
   BORROW:   WebApp_URL,
-  FEEDBACK: WebApp_URL // Nếu có dùng feedback thì dán luôn
+  FEEDBACK: WebApp_URL,
+  Finance:  WebApp_URL
 };
+
 // ── STORAGE KEYS ──────────────────────────────────────────────
 const K = {
   BOOKS:'nhc4_books', USERS:'nhc4_users', BORROWS:'nhc4_borrows',
   DOCS:'nhc4_docs',   PWD:'nhc4_pwd',     AUTH:'nhc4_auth',
+  FINANCE: 'nhc4_finance'
 };
 const K_VER = 'nhc4_dbver';
 
@@ -70,19 +73,29 @@ const ROLE_COLOR  = {
   librarian: { bg:'#EDE9FE', c:'#5B21B6' },
 };
 
+// ── TIÊU ĐỀ TRANG (bao gồm cả rules) ─────────────────────────
 const PAGE_TITLE = {
-  dashboard:'Trang chủ', books:'Quản lý sách', borrow:'Mượn / Trả',
-  documents:'Tài liệu & Đề thi', users:'Người dùng', settings:'Cài đặt', feedback:'Phản hồi',
+  dashboard : 'Trang chủ',
+  books     : 'Quản lý sách',
+  borrow    : 'Mượn / Trả',
+  rules     : 'Nội quy Thư viện',
+  documents : 'Tài liệu & Đề thi',
+  users     : 'Người dùng',
+  feedback  : 'Phản hồi',
+  settings  : 'Cài đặt',
+  finance   : 'Quản lý Tài chính',  // ← THÊM MỚI
 };
 
 const NAV = [
-  { id:'dashboard', icon:'🏠', label:'Trang chủ',   file:'dashboard.html', roles:['student','teacher','librarian'] },
-  { id:'books',     icon:'📚', label:'Sách',         file:'books.html',     roles:['student','teacher','librarian'] },
-  { id:'borrow',    icon:'🔄', label:'Mượn / Trả',  file:'borrow.html',    roles:['student','teacher','librarian'] },
-  { id:'documents', icon:'📄', label:'Tài liệu',     file:'documents.html', roles:['teacher','librarian'] },
-  { id:'users',     icon:'👥', label:'Người dùng',   file:'users.html',     roles:['librarian'] },
-  { id:'feedback',  icon:'💬', label:'Phản hồi',     file:'feedback.html',  roles:['student','teacher','librarian'] },
-  { id:'settings',  icon:'⚙️', label:'Cài đặt',      file:'settings.html',  roles:['librarian'] },
+  { id:'dashboard', icon:'🏠', label:'Trang chủ',  file:'dashboard.html', roles:['student','teacher','librarian'] },
+  { id:'books',     icon:'📚', label:'Sách',        file:'books.html',     roles:['student','teacher','librarian'] },
+  { id:'borrow',    icon:'🔄', label:'Mượn / Trả', file:'borrow.html',    roles:['student','teacher','librarian'] },
+  { id:'rules',     icon:'📜', label:'Nội quy',     file:'rules.html',     roles:['student','teacher','librarian'] },
+  { id:'documents', icon:'📄', label:'Tài liệu',    file:'documents.html', roles:['teacher','librarian'] },
+  { id:'users',     icon:'👥', label:'Người dùng',  file:'users.html',     roles:['librarian'] },
+  { id:'finance',   icon:'💰', label:'Quản lý Tài chính', file:'finance.html', roles:['librarian'] }, // ← THÊM MỚI
+  { id:'feedback',  icon:'💬', label:'Phản hồi',    file:'feedback.html',  roles:['student','teacher','librarian'] },
+  { id:'settings',  icon:'⚙️', label:'Cài đặt',     file:'settings.html',  roles:['librarian'] },
 ];
 
 // ── LOCAL STORAGE ─────────────────────────────────────────────
@@ -205,15 +218,16 @@ function userStatusBadge(st) {
   return `<span class="badge badge-red">❌ Từ chối</span>`;
 }
 function avatarHtml(name, role, cls='avatar-md') {
-  const rc = ROLE_COLOR[role]||{bg:'#F3F4F6',c:'#374151'};
-  return `<div class="avatar ${cls}" style="background:${rc.bg};color:${rc.c}">${esc((name||'?').charAt(0))}</div>`;
+  const rc = ROLE_COLOR[role] || { bg:'#F3F4F6', c:'#374151' };
+  const letter = esc((name || '?').charAt(0));
+  return `<div class="avatar ${cls}" style="background:${rc.bg};color:${rc.c}">${letter}</div>`;
 }
 function catTag(cat) {
-  const cc = CAT_COLORS[cat]||CAT_COLORS['Khác'];
+  const cc = CAT_COLORS[cat] || CAT_COLORS['Khác'];
   return `<span class="cat-tag" style="background:${cc.bg};color:${cc.c}">${esc(cat)}</span>`;
 }
 function roleTag(role) {
-  const rc = ROLE_COLOR[role]||{bg:'#F3F4F6',c:'#374151'};
+  const rc = ROLE_COLOR[role] || { bg:'#F3F4F6', c:'#374151' };
   return `<span class="role-tag" style="background:${rc.bg};color:${rc.c}">${ROLE_LABEL[role]||role}</span>`;
 }
 
@@ -221,75 +235,158 @@ function roleTag(role) {
 function logoImgHtml(cls, size=40, extraStyle='') {
   return `<img src="school-logo.png" alt="Logo NHC" class="${cls}"
     style="${extraStyle}"
-    onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=&quot;${cls === 'sb-logo' ? 'sb-logo-fb' : 'll-logo-fb'}&quot;>📚</div>'};">`;
+    onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=&quot;${cls === 'sb-logo' ? 'sb-logo-fb' : 'll-logo-fb'}&quot;>📚</div>';};">`;
 }
 
 // ── PAGE INIT ─────────────────────────────────────────────────
+// QUAN TRỌNG: initPage(pageId) → renderLayout(u, pageId) — đúng thứ tự tham số
 function initPage(pageId, allowed=[]) {
   const u = getCurrentUser();
   if (!u) { location.replace('login.html'); return; }
   if (allowed.length && !allowed.includes(u.role)) { location.replace('dashboard.html'); return; }
-  renderLayout(pageId, u);
+  renderLayout(u, pageId);
 }
 
 // ── SIDEBAR + TOPBAR ──────────────────────────────────────────
-function renderLayout(pageId, u) {
-  const pending = getUsers().filter(x=>x.status==='pending').length;
-  const visible = NAV.filter(n=>n.roles.includes(u.role));
+// Tham số: u = user object, pageId = chuỗi id trang (vd: 'dashboard', 'rules', ...)
+function renderLayout(u, pageId) {
+  const pending = getUsers().filter(x => x.status === 'pending').length;
+
+  // Thông tin người dùng (an toàn với giá trị undefined)
+  const userName      = u.name  || 'Người dùng';
+  const userRole      = u.role  || 'student';
+  const userRoleLabel = ROLE_LABEL[userRole] || userRole;
+
+  // Helper: tạo link nav với đúng class CSS
+  function navLink(href, id, icon, label) {
+    const active = pageId === id;
+    return `
+    <a href="${href}" class="nav-item${active ? ' active' : ''}">
+      ${active ? '<span class="nav-bar"></span>' : ''}
+      <span class="nav-icon">${icon}</span>
+      <span class="nav-label">${label}</span>
+    </a>`;
+  }
+
+  // Helper đặc biệt: link nav với badge "Mới" + màu vàng gold (dùng cho Tài chính)
+  function navLinkSpecial(href, id, icon, label, badge) {
+    const active = pageId === id;
+    return `
+    <a href="${href}" class="nav-item nav-item-finance${active ? ' active' : ''}">
+      ${active ? '<span class="nav-bar"></span>' : ''}
+      <span class="nav-icon">${icon}</span>
+      <span class="nav-label">${label}</span>
+      ${badge && !active ? `<span class="nav-badge-new">${esc(badge)}</span>` : ''}
+    </a>`;
+  }
 
   const sidebarHtml = `
 <aside class="sidebar" id="sidebar">
+
+  <!-- Header logo -->
   <div class="sb-header">
-    ${logoImgHtml('sb-logo')}
-    <div><p class="sb-title">Thư viện THPT</p><p class="sb-sub">Nguyễn Hữu Cảnh</p></div>
+    <img src="school-logo.png" alt="NHC Logo" class="sb-logo"
+      onerror="this.onerror=null;this.src='school-logo.svg';this.onerror=function(){this.outerHTML='<div class=\\'sb-logo-fb\\'>📚</div>';  };">
+    <div>
+      <p class="sb-title">Thư viện NHC</p>
+      <p class="sb-sub">Kết nối tri thức</p>
+    </div>
   </div>
+
+  <!-- Navigation -->
   <nav class="sb-nav">
-    ${visible.map(n=>`
-    <button class="nav-item${pageId===n.id?' active':''}" onclick="location.href='${n.file}'" title="${n.label}">
-      ${pageId===n.id?'<span class="nav-bar"></span>':''}
-      <span class="nav-icon">${n.icon}</span>
-      <span class="nav-label">${n.label}</span>
-      ${n.id==='users'&&pending?`<span class="nav-badge">${pending}</span>`:''}
-    </button>`).join('')}
+    ${navLink('dashboard.html', 'dashboard', '📊', 'Tổng quan')}
+    ${navLink('books.html',     'books',     '📚', 'Kho sách')}
+    ${navLink('borrow.html',    'borrow',    '🔄', 'Mượn / Trả')}
+    ${navLink('rules.html',     'rules',     '📜', 'Nội quy')}
+    ${navLink('feedback.html',  'feedback',  '💬', 'Phản hồi')}
+    ${(userRole === 'teacher' || userRole === 'librarian')
+      ? navLink('documents.html', 'documents', '📄', 'Tài liệu')
+      : ''}
+    ${userRole === 'librarian' ? `
+    <div style="font-size:10px;font-weight:700;color:rgba(147,197,253,.7);
+                text-transform:uppercase;letter-spacing:.8px;
+                padding:12px 20px 4px">Quản trị</div>
+    ${navLink('users.html',    'users',    '👥', 'Thành viên')}
+    ${navLinkSpecial('finance.html', 'finance', '💰', 'Tài chính', 'Mới')}
+    ${navLink('settings.html', 'settings', '⚙️', 'Cài đặt')}` : ''}
   </nav>
+
+  <!-- User footer -->
   <div class="sb-user">
-    ${avatarHtml(u.name, u.role)}
+    <div class="sb-avatar">${esc((userName).charAt(0))}</div>
     <div style="flex:1;min-width:0">
-      <p class="sb-uname">${esc(u.name)}</p>
-      <p class="sb-urole">${ROLE_LABEL[u.role]||u.role}</p>
+      <p class="sb-uname">${esc(userName)}</p>
+      <p class="sb-urole">${userRoleLabel}</p>
     </div>
     <span class="sb-logout" title="Đăng xuất" onclick="confirmLogout()">🚪</span>
   </div>
+
 </aside>`;
 
   const topbarHtml = `
 <header class="topbar">
   <button class="menu-btn" onclick="toggleSidebar()">☰</button>
   <div class="topbar-info">
-    <p class="topbar-greet">Xin chào, <strong>${esc(u.name)}</strong>!</p>
-    <p class="topbar-sub">${PAGE_TITLE[pageId]||'Trang chủ'}</p>
+    <p class="topbar-greet">Xin chào, <strong>${esc(userName)}</strong>!</p>
+    <p class="topbar-sub">${PAGE_TITLE[pageId] || 'Trang chủ'}</p>
   </div>
   <div class="topbar-right">
     <span class="offline-badge" id="offline-badge">📡 Offline</span>
-    ${pending>0&&u.role==='librarian'
-      ?`<button class="icon-btn" onclick="location.href='users.html'"
-          title="${pending} tài khoản chờ duyệt" style="color:#D97706">
-          🔔<span class="dot"></span>
-        </button>`:''}
+    ${pending > 0 && userRole === 'librarian'
+      ? `<button class="icon-btn" onclick="location.href='users.html'"
+              title="${pending} tài khoản chờ duyệt" style="color:#D97706">
+              🔔<span class="dot"></span>
+            </button>` : ''}
   </div>
 </header>`;
 
   const sbCnt = document.getElementById('sidebar-cnt');
   const tbCnt = document.getElementById('topbar-cnt');
+
   if (sbCnt) sbCnt.innerHTML = sidebarHtml + `<div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar()"></div>`;
   if (tbCnt) tbCnt.innerHTML = topbarHtml;
 }
 
 function toggleSidebar() {
-  document.getElementById('sidebar')?.classList.toggle('open');
-  document.getElementById('sb-backdrop')?.classList.toggle('show');
+  // Tìm sidebar theo id (id="sidebar" được đặt trong renderLayout)
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sb-backdrop');
+  if (sb) sb.classList.toggle('open');
+  if (bd) bd.classList.toggle('show');
 }
 
 function confirmLogout() {
   if (confirm('Bạn có chắc muốn đăng xuất không?')) doLogout();
+}
+function getFinance(cb) {
+  // Lấy từ localStorage (dữ liệu mock hoặc đã được cập nhật)
+  const data = db.get(K.FINANCE, []);
+  if (cb) cb(data);
+}
+
+function updatePaymentStatus(id) {
+  const data = db.get(K.FINANCE, []);
+  const updated = data.map(f => f.id === id ? { ...f, status: 'Đã nộp' } : f);
+  db.set(K.FINANCE, updated);
+}
+
+// ── TẠO ĐƠN PHẠT MỚI ─────────────────────────────────────────
+function createFine(fineData) {
+  const data = db.get(K.FINANCE, []);
+  data.unshift(fineData);           // thêm vào đầu danh sách
+  db.set(K.FINANCE, data);
+  // Đồng bộ lên Google Sheets (fire-and-forget)
+  gsPost(GS.Finance, {
+    action:    'CREATE_FINE',
+    id:        fineData.id,
+    studentId: fineData.studentId,
+    name:      fineData.name,
+    className: fineData.className,
+    fee:       fineData.fee,
+    reason:    fineData.reason,
+    status:    fineData.status,
+    date:      fineData.date,
+    createdAt: nowStr(),
+  });
 }

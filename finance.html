@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quản lý Tài chính — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Finance Stats ── */
+    .finance-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    .finance-stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 20px 22px;
+      box-shadow: var(--sh);
+    }
+    .finance-stat-card.green { border-left: 5px solid var(--success); }
+    .finance-stat-card.red   { border-left: 5px solid var(--danger); }
+    .fs-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .fs-icon.green { background: var(--success-l); }
+    .fs-icon.red   { background: var(--danger-l); }
+    .fs-amount {
+      font-size: 26px; font-weight: 800; margin-top: 8px;
+    }
+    .fs-amount.green { color: var(--success); }
+    .fs-amount.red   { color: var(--danger); }
+
+    /* ── Collect Button ── */
+    .collect-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 14px;
+      background: var(--primary); color: white;
+      border: none; border-radius: 8px;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: background .15s;
+    }
+    .collect-btn:hover { background: var(--primary-h); }
+
+    /* ── Toolbar & Filters ── */
+    .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border);
+      background: white; color: var(--text-s); transition: all .15s; font-family: inherit;
+    }
+    .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* ── Page header with button ── */
+    .page-hd-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .btn-new-fine {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px;
+      background: var(--primary); color: white;
+      border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(30,58,138,.28);
+      font-family: inherit; white-space: nowrap;
+      transition: background .15s, transform .15s, box-shadow .15s;
+    }
+    .btn-new-fine:hover {
+      background: var(--primary-h);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(30,58,138,.35);
+    }
+
+    /* ── Status badge pills ── */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 12px; border-radius: 99px;
+      font-size: 11px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-pill.paid   { background: #D1FAE5; color: #059669; border: 1px solid #A7F3D0; }
+    .status-pill.unpaid { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; }
+
+    /* ── Modal Overlay ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,.48);
+      display: none; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.show { display: flex; }
+
+    /* ── Modal Box ── */
+    .modal-box {
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.18);
+      width: 100%; max-width: 500px;
+      overflow: hidden;
+      animation: modalSlideIn .24s cubic-bezier(.34,1.46,.64,1);
+    }
+    @keyframes modalSlideIn {
+      from { transform: scale(.9) translateY(20px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+
+    /* ── Modal Header ── */
+    .modal-hd {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+    }
+    .modal-hd h2 { font-size: 17px; font-weight: 700; color: var(--primary); margin: 0; }
+    .modal-hd p  { font-size: 12px; color: var(--text-s); margin-top: 2px; }
+    .modal-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      border: none; background: rgba(0,0,0,.06); cursor: pointer;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-s); transition: background .15s; flex-shrink: 0;
+    }
+    .modal-close:hover { background: rgba(0,0,0,.12); }
+
+    /* ── Modal Body ── */
+    .modal-body {
+      padding: 22px 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── Modal Footer ── */
+    .modal-footer { display: flex; gap: 10px; margin-top: 4px; }
+    .modal-footer .btn { flex: 1; justify-content: center; }
+    .modal-footer .btn-primary { flex: 2; }
+
+    /* ── Read-only auto-fill inputs ── */
+    .fm-readonly {
+      background: var(--bg) !important;
+      color: var(--text-m) !important;
+      cursor: default !important;
+    }
+
+    /* ── Student ID input states ── */
+    #fm-sid { transition: border-color .2s, background .2s; }
+    #fm-sid.found   { border-color: var(--success) !important; background: #F0FDF4; }
+    #fm-sid.notfound{ border-color: var(--danger)  !important; }
+
+    /* ── Error message box ── */
+    .fm-error {
+      display: none;
+      background: #FEF2F2; border: 1px solid #FECACA;
+      border-radius: 8px; padding: 10px 14px;
+      font-size: 12px; color: var(--danger);
+    }
+
+    /* ── Fee live preview ── */
+    .fee-preview {
+      font-size: 11px; color: var(--danger);
+      font-weight: 700; margin-top: 3px;
+      min-height: 16px;
+    }
+  </style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+    <main class="main-content">
+      <div class="page">
+
+        <!-- ── Page Header ── -->
+        <div class="page-hd-row">
+          <div class="page-hd" style="margin:0">
+            <h1>💰 Quản lý Tài chính</h1>
+            <p>Theo dõi và xử lý các khoản phạt vi phạm nội quy thư viện.</p>
+          </div>
+          <button class="btn-new-fine" onclick="openFineModal()">
+            ＋ Lập đơn phạt mới
+          </button>
+        </div>
+
+        <!-- ── Summary Cards ── -->
+        <div class="finance-stats">
+          <!-- Card: Đã thu -->
+          <div class="finance-stat-card green">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div class="fs-icon green">✅</div>
+              <div>
+                <p style="font-size:12px;color:var(--text-s);font-weight:500">Tổng tiền đã thu</p>
+                <p style="font-size:11px;color:var(--text-xs)" id="count-collected">— khoản</p>
+              </div>
+            </div>
+            <p class="fs-amount green" id="total-collected">0đ</p>
+          </div>
+          <!-- Card: Chờ thu -->
+          <div class="finance-stat-card red">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div class="fs-icon red">⚠️</div>
+              <div>
+                <p style="font-size:12px;color:var(--text-s);font-weight:500">Tiền chờ thu (Nợ)</p>
+                <p style="font-size:11px;color:var(--text-xs)" id="count-pending">— khoản</p>
+              </div>
+            </div>
+            <p class="fs-amount red" id="total-pending">0đ</p>
+          </div>
+        </div>
+
+        <!-- ── Toolbar ── -->
+        <div class="toolbar">
+          <div class="sbox" style="max-width:380px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="search-input" placeholder="Tìm theo tên, lớp, số hiệu, lý do..." oninput="renderFinance()">
+          </div>
+          <button class="filter-btn active" id="btn-all"    onclick="setFilter('all')">Tất cả</button>
+          <button class="filter-btn"        id="btn-unpaid" onclick="setFilter('unpaid')">⚠️ Chưa nộp</button>
+          <button class="filter-btn"        id="btn-paid"   onclick="setFilter('paid')">✅ Đã nộp</button>
+        </div>
+
+        <!-- ── Data Table ── -->
+        <div class="tbl-wrap">
+          <table class="tbl" id="finance-table">
+            <thead>
+              <tr>
+                <th>Họ và tên</th>
+                <th>Lớp</th>
+                <th>Số hiệu</th>
+                <th>Tiền phạt</th>
+                <th>Lý do</th>
+                <th>Trạng thái</th>
+                <th>Ngày ghi nhận</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="finance-list">
+              <tr><td colspan="8" class="empty">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div><!-- /.page -->
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Lập Đơn Phạt Vi Phạm
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="fine-modal" onclick="handleModalBackdrop(event)">
+  <div class="modal-box">
+
+    <!-- Header -->
+    <div class="modal-hd">
+      <div>
+        <h2>📝 Lập Đơn Phạt Vi Phạm</h2>
+        <p>Điền đầy đủ thông tin để tạo đơn phạt</p>
+      </div>
+      <button class="modal-close" onclick="closeFineModal()" title="Đóng">✕</button>
+    </div>
+
+    <!-- Form Body -->
+    <form class="modal-body" id="fine-form" onsubmit="submitFine(event)">
+
+      <!-- Số hiệu học sinh -->
+      <div class="field">
+        <label>Số hiệu học sinh <span class="req">*</span></label>
+        <div class="iw">
+          <span class="ii">🔍</span>
+          <input
+            type="text" id="fm-sid"
+            placeholder="VD: HS001"
+            oninput="lookupStudent()"
+            autocomplete="off"
+          >
+        </div>
+        <small id="fm-sid-hint" style="color:var(--text-xs)">Nhập số hiệu để tự động điền thông tin học sinh.</small>
+      </div>
+
+      <!-- Họ và tên + Lớp (auto-fill) -->
+      <div class="frm-row">
+        <div class="field">
+          <label>Họ và tên</label>
+          <input type="text" id="fm-name" readonly placeholder="Tự động điền..." class="fm-readonly">
+        </div>
+        <div class="field">
+          <label>Lớp</label>
+          <input type="text" id="fm-class" readonly placeholder="Tự động điền..." class="fm-readonly">
+        </div>
+      </div>
+
+      <!-- Số tiền phạt -->
+      <div class="field">
+        <label>Số tiền phạt (đ) <span class="req">*</span></label>
+        <div class="iw">
+          <span class="ii" style="font-size:12px;font-weight:700;color:var(--text-s)">đ</span>
+          <input
+            type="number" id="fm-fee"
+            min="1000" step="1000"
+            placeholder="VD: 50000"
+            oninput="updateFeePreview()"
+          >
+        </div>
+        <p class="fee-preview" id="fm-fee-preview"></p>
+      </div>
+
+      <!-- Lý do vi phạm -->
+      <div class="field">
+        <label>Lý do vi phạm <span class="req">*</span></label>
+        <select id="fm-reason">
+          <option value="Trả sách trễ">Trả sách trễ</option>
+          <option value="Làm hỏng sách">Làm hỏng sách</option>
+          <option value="Làm mất sách">Làm mất sách</option>
+          <option value="Vi phạm nội quy">Vi phạm nội quy</option>
+        </select>
+      </div>
+
+      <!-- Error message -->
+      <div class="fm-error" id="fm-error"></div>
+
+      <!-- Action buttons -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeFineModal()">Hủy</button>
+        <button type="submit" class="btn btn-primary">✅ Xác nhận tạo phạt</button>
+      </div>
+
+    </form>
+  </div>
+</div><!-- /#fine-modal -->
+
+<script src="script.js"></script>
+<script>
+  // Chỉ cho phép thủ thư truy cập trang này
+  initPage('finance', ['librarian']);
+
+  /* ── Bộ lọc ──────────────────────────────────────────── */
+  let currentFilter = 'all';
+
+  function setFilter(f) {
+    currentFilter = f;
+    document.getElementById('btn-all').classList.toggle('active',    f === 'all');
+    document.getElementById('btn-unpaid').classList.toggle('active', f === 'unpaid');
+    document.getElementById('btn-paid').classList.toggle('active',   f === 'paid');
+    renderFinance();
+  }
+
+  /* ── Render bảng tài chính ──────────────────────────── */
+  function renderFinance() {
+    const list             = document.getElementById('finance-list');
+    const totalCollectedEl = document.getElementById('total-collected');
+    const totalPendingEl   = document.getElementById('total-pending');
+    const countCollectedEl = document.getElementById('count-collected');
+    const countPendingEl   = document.getElementById('count-pending');
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase();
+
+    getFinance(function(data) {
+      /* ── Tổng hợp tất cả (không lọc) ── */
+      let collected = 0, pending = 0, countC = 0, countP = 0;
+      (data || []).forEach(item => {
+        const amt = parseInt(item.fee) || 0;
+        if (item.status === 'Đã nộp') { collected += amt; countC++; }
+        else                          { pending   += amt; countP++; }
+      });
+      totalCollectedEl.textContent = collected.toLocaleString('vi-VN') + 'đ';
+      totalPendingEl.textContent   = pending.toLocaleString('vi-VN')   + 'đ';
+      countCollectedEl.textContent = countC + ' khoản';
+      countPendingEl.textContent   = countP + ' khoản';
+
+      if (!data || data.length === 0) {
+        list.innerHTML = `
+          <tr><td colspan="8" class="empty" style="padding:48px">
+            💰 Chưa có dữ liệu tài chính.<br>
+            <small style="color:var(--text-xs)">Nhấn <strong style="color:var(--primary)">+ Lập đơn phạt mới</strong> để bắt đầu.</small>
+          </td></tr>`;
+        return;
+      }
+
+      /* ── Lọc theo search + filter ── */
+      const filtered = data.filter(item => {
+        const matchSearch = !query ||
+          (item.name      || '').toLowerCase().includes(query) ||
+          (item.className || '').toLowerCase().includes(query) ||
+          (item.studentId || '').toLowerCase().includes(query) ||
+          (item.reason    || '').toLowerCase().includes(query);
+        const isPaid = item.status === 'Đã nộp';
+        const matchFilter =
+          currentFilter === 'all' ||
+          (currentFilter === 'paid'   &&  isPaid) ||
+          (currentFilter === 'unpaid' && !isPaid);
+        return matchSearch && matchFilter;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<tr><td colspan="8" class="empty">🔍 Không tìm thấy khoản phạt phù hợp.</td></tr>';
+        return;
+      }
+
+      /* ── Render rows ── */
+      list.innerHTML = filtered.map(item => {
+        const amt    = parseInt(item.fee) || 0;
+        const isPaid = item.status === 'Đã nộp';
+        return `
+        <tr>
+          <!-- Họ và tên -->
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:50%;background:#DBEAFE;color:#1E40AF;
+                          display:flex;align-items:center;justify-content:center;
+                          font-weight:700;font-size:13px;flex-shrink:0">
+                ${esc((item.name||'?').charAt(0))}
+              </div>
+              <strong>${esc(item.name)}</strong>
+            </div>
+          </td>
+          <!-- Lớp -->
+          <td>
+            <span style="background:#EFF6FF;color:#1E40AF;padding:2px 8px;border-radius:5px;font-size:12px;font-weight:600">
+              ${esc(item.className)}
+            </span>
+          </td>
+          <!-- Số hiệu -->
+          <td><code class="code">${esc(item.studentId)}</code></td>
+          <!-- Tiền phạt -->
+          <td style="color:var(--danger);font-weight:700;font-size:14px">
+            ${amt.toLocaleString('vi-VN')}đ
+          </td>
+          <!-- Lý do -->
+          <td style="color:var(--text-s);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+              title="${esc(item.reason)}">${esc(item.reason)}</td>
+          <!-- Trạng thái -->
+          <td>
+            <span class="status-pill ${isPaid ? 'paid' : 'unpaid'}">
+              ${isPaid ? '✅ Đã nộp' : '❌ Chưa nộp'}
+            </span>
+          </td>
+          <!-- Ngày -->
+          <td style="color:var(--text-s)">${fmtD(item.date)}</td>
+          <!-- Thao tác -->
+          <td>
+            ${!isPaid
+              ? `<button class="collect-btn" onclick="pay('${esc(item.id)}')">💵 Thu tiền</button>`
+              : '<span style="font-size:20px" title="Đã thu tiền">✅</span>'
+            }
+          </td>
+        </tr>`;
+      }).join('');
+    });
+  }
+
+  /* ── Thu tiền (đổi trạng thái) ───────────────────── */
+  function pay(id) {
+    if (!confirm('Xác nhận đã thu tiền khoản phạt này?\nThao tác này không thể hoàn tác.')) return;
+    updatePaymentStatus(id);
+    toast('✅ Đã cập nhật trạng thái thanh toán!', 'success');
+    renderFinance();
+  }
+
+  /* ════════════════════════════════════════════════════
+     MODAL: Lập đơn phạt
+     ════════════════════════════════════════════════════ */
+  let fmFoundUser = null;
+
+  /** Mở modal & reset form */
+  function openFineModal() {
+    document.getElementById('fine-modal').classList.add('show');
+    document.getElementById('fm-sid').value    = '';
+    document.getElementById('fm-name').value   = '';
+    document.getElementById('fm-class').value  = '';
+    document.getElementById('fm-fee').value    = '';
+    document.getElementById('fm-reason').value = 'Trả sách trễ';
+    document.getElementById('fm-fee-preview').textContent = '';
+    document.getElementById('fm-sid-hint').textContent = 'Nhập số hiệu để tự động điền thông tin học sinh.';
+    hideFmError();
+    fmFoundUser = null;
+    resetSidInput();
+    // Focus sau khi animation chạy xong
+    setTimeout(() => document.getElementById('fm-sid').focus(), 100);
+  }
+
+  /** Đóng modal */
+  function closeFineModal() {
+    document.getElementById('fine-modal').classList.remove('show');
+  }
+
+  /** Đóng khi click backdrop */
+  function handleModalBackdrop(e) {
+    if (e.target === document.getElementById('fine-modal')) closeFineModal();
+  }
+
+  /** Đóng bằng phím Escape */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeFineModal();
+  });
+
+  /** Tìm học sinh theo số hiệu */
+  function lookupStudent() {
+    const sid = (document.getElementById('fm-sid').value || '').trim();
+    const sidEl = document.getElementById('fm-sid');
+
+    if (!sid) {
+      fmFoundUser = null;
+      document.getElementById('fm-name').value  = '';
+      document.getElementById('fm-class').value = '';
+      document.getElementById('fm-sid-hint').textContent = 'Nhập số hiệu để tự động điền thông tin học sinh.';
+      resetSidInput();
+      hideFmError();
+      return;
+    }
+
+    const users = getUsers();
+    const user  = users.find(u =>
+      u.studentId &&
+      u.studentId.toLowerCase() === sid.toLowerCase() &&
+      u.role !== 'librarian' &&
+      u.status === 'approved'
+    );
+
+    fmFoundUser = user || null;
+    document.getElementById('fm-name').value  = user ? user.name            : '';
+    document.getElementById('fm-class').value = user ? (user.className||'') : '';
+
+    if (user) {
+      sidEl.className = 'found';
+      document.getElementById('fm-sid-hint').textContent = '✓ Tìm thấy: ' + user.name + ' — ' + (user.className||'');
+      document.getElementById('fm-sid-hint').style.color = 'var(--success)';
+      hideFmError();
+    } else {
+      sidEl.className = 'notfound';
+      document.getElementById('fm-sid-hint').textContent = '';
+      document.getElementById('fm-sid-hint').style.color = 'var(--text-xs)';
+      showFmError('Không tìm thấy học sinh với số hiệu "' + sid + '".');
+    }
+  }
+
+  /** Reset trạng thái ô Số hiệu */
+  function resetSidInput() {
+    const sidEl = document.getElementById('fm-sid');
+    sidEl.className = '';
+    sidEl.style.borderColor = '';
+    sidEl.style.background  = '';
+    document.getElementById('fm-sid-hint').style.color = 'var(--text-xs)';
+  }
+
+  /** Live preview số tiền */
+  function updateFeePreview() {
+    const fee = parseInt(document.getElementById('fm-fee').value);
+    const el  = document.getElementById('fm-fee-preview');
+    el.textContent = (fee > 0) ? '→ ' + fee.toLocaleString('vi-VN') + ' đồng' : '';
+  }
+
+  /** Hiện thông báo lỗi */
+  function showFmError(msg) {
+    const el = document.getElementById('fm-error');
+    el.innerHTML = '⚠️ ' + esc(msg);
+    el.style.display = 'block';
+  }
+
+  /** Ẩn thông báo lỗi */
+  function hideFmError() {
+    document.getElementById('fm-error').style.display = 'none';
+  }
+
+  /** Submit form — tạo đơn phạt mới */
+  function submitFine(e) {
+    e.preventDefault();
+
+    if (!fmFoundUser) {
+      showFmError('Vui lòng nhập số hiệu học sinh hợp lệ trước khi tạo đơn phạt.');
+      document.getElementById('fm-sid').focus();
+      return;
+    }
+
+    const fee = parseInt(document.getElementById('fm-fee').value);
+    if (!fee || fee <= 0) {
+      showFmError('Vui lòng nhập số tiền phạt hợp lệ (lớn hơn 0đ).');
+      document.getElementById('fm-fee').focus();
+      return;
+    }
+
+    const reason = document.getElementById('fm-reason').value;
+
+    const newFine = {
+      id:        'f' + Date.now(),
+      userId:    fmFoundUser.id,
+      studentId: fmFoundUser.studentId,
+      name:      fmFoundUser.name,
+      className: fmFoundUser.className || '',
+      fee:       fee,
+      reason:    reason,
+      status:    'Chưa nộp',
+      date:      todayStr(),
+    };
+
+    createFine(newFine);
+    toast('✅ Đã tạo đơn phạt cho ' + fmFoundUser.name + '!', 'success', 'Tạo đơn phạt thành công');
+    closeFineModal();
+    renderFinance();
+  }
+
+  /* ── Khởi chạy khi load trang ─────────────────────── */
+  renderFinance();
+</script>
+</body>
+</html>

@@ -346,3 +346,272 @@ input[type="date"]:focus{border-color:var(--primary)}
 .toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}
 .toggle input:checked+.toggle-slider{background:var(--primary)}
 .toggle input:checked+.toggle-slider::before{transform:translateX(18px)}
+/* Container chính chứa 2 cột */
+.rules-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Chia đôi màn hình */
+  gap: 24px;
+  margin-top: 24px;
+}
+
+/* Thẻ card chung */
+.rule-card {
+  background: white;
+  padding: 28px;
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  border: 1px solid #E2E8F0;
+  transition: transform 0.2s;
+}
+
+.rule-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Tiêu đề trong card */
+.rule-card h2 {
+  font-size: 1.25rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--p-dark);
+  border-bottom: 2px solid var(--p-light);
+  padding-bottom: 12px;
+}
+
+/* Danh sách nội dung */
+.rule-list {
+  list-style: none;
+  padding: 0;
+}
+
+.rule-list li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 14px;
+  line-height: 1.6;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+/* Biểu tượng dấu tích (Nội quy) */
+.rule-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--success);
+  font-weight: 800;
+}
+
+/* Style riêng cho Bảng Phạt */
+.punish-card {
+  border-top: 5px solid var(--danger); /* Viền đỏ phía trên để cảnh báo */
+  background: var(--danger-bg);
+}
+
+.punish-card h2 {
+  color: #991B1B;
+  border-bottom-color: #FEE2E2;
+}
+
+/* Biểu tượng dấu X (Vi phạm) */
+.punish-list li::before {
+  content: "✕" !important;
+  color: var(--danger) !important;
+}
+
+/* Responsive cho mobile */
+@media (max-width: 992px) {
+  .rules-container {
+    grid-template-columns: 1fr; /* Chuyển thành 1 cột trên điện thoại */
+  }
+}
+.badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.bg-success { background: var(--success-l); color: var(--success); }
+.bg-danger { background: var(--danger-l); color: var(--danger); }
+
+.btn-s {
+  padding: 5px 10px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.btn-s:hover { background: var(--primary-h); }
+
+/* ════════════════════════════════════════════════════════
+   NAV ITEM ĐẶC BIỆT — Tài chính (gold + badge "Mới")
+   ════════════════════════════════════════════════════════ */
+.nav-item-finance:not(.active) {
+  color: #FCD34D !important;
+  background: rgba(250,204,21,.07) !important;
+}
+.nav-item-finance:not(.active):hover {
+  background: rgba(250,204,21,.15) !important;
+  color: #FDE68A !important;
+}
+.nav-badge-new {
+  background: #EF4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  letter-spacing: .3px;
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════
+   MODAL — dùng chung cho các trang (Lập đơn phạt, v.v.)
+   ════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0,0,0,.48);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.show { display: flex; }
+
+.modal-box {
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+  width: 100%;
+  max-width: 500px;
+  overflow: hidden;
+  animation: modalSlideIn .24s cubic-bezier(.34,1.46,.64,1);
+}
+@keyframes modalSlideIn {
+  from { transform: scale(.9) translateY(20px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.modal-hd {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+}
+.modal-hd h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 0;
+}
+.modal-hd p {
+  font-size: 12px;
+  color: var(--text-s);
+  margin-top: 2px;
+}
+.modal-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: none; background: rgba(0,0,0,.06);
+  cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-s); transition: background .15s; flex-shrink: 0;
+}
+.modal-close:hover { background: rgba(0,0,0,.14); color: var(--text); }
+
+.modal-body {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.modal-footer .btn        { flex: 1; justify-content: center; }
+.modal-footer .btn-primary { flex: 2; }
+
+/* Read-only auto-fill fields trong modal */
+.fm-readonly {
+  background: var(--bg) !important;
+  color: var(--text-m) !important;
+  cursor: default !important;
+}
+
+/* Error box trong modal */
+.fm-error {
+  display: none;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--danger);
+  line-height: 1.5;
+}
+
+/* Status pill (rounded badge) dùng trong bảng Tài chính */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-pill.paid   { background: #D1FAE5; color: #059669; border: 1px solid #A7F3D0; }
+.status-pill.unpaid { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; }
+
+/* Page header hàng ngang (tiêu đề + nút action) */
+.page-hd-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Nút "Lập đơn phạt mới" (primary action button) */
+.btn-new-fine {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(30,58,138,.28);
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.btn-new-fine:hover {
+  background: var(--primary-h);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(30,58,138,.35);
+}
+
+/* Fee live preview text */
+.fee-preview {
+  font-size: 11px;
+  color: var(--danger);
+  font-weight: 700;
+  margin-top: 3px;
+  min-height: 16px;
+}

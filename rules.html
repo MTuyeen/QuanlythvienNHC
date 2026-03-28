@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nội quy Thư viện — Thư viện NHC</title>
+  <link rel="icon" href="school-logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .rules-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 20px;
+    }
+    @media (max-width: 768px) {
+      .rules-container { grid-template-columns: 1fr; }
+    }
+    .rule-card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .rule-card h2 {
+      color: var(--p-dark);
+      border-bottom: 2px solid var(--p-light);
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .rule-list {
+      list-style: none;
+      padding: 0;
+    }
+    .rule-list li {
+      margin-bottom: 12px;
+      padding-left: 25px;
+      position: relative;
+      line-height: 1.6;
+      color: #4B5563;
+    }
+    .rule-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10B981;
+      font-weight: bold;
+    }
+    .note-box {
+      margin-top: 20px;
+      background: #FFFBEB;
+      border-left: 4px solid #F59E0B;
+      padding: 15px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<div class="app-wrap">
+  <div id="sidebar-cnt"></div>
+  <div class="main-area">
+    <div id="topbar-cnt"></div>
+<main class="main-content" id="content">
+  <div class="page">
+    <div class="page-hd">
+      <h1>📜 Nội quy Thư viện</h1>
+      <p>Vui lòng đọc kỹ và tuân thủ các quy định để xây dựng môi trường văn hóa đọc tốt đẹp.</p>
+    </div>
+
+    <div class="rules-container">
+      <div class="rule-card" id="rules-student" style="display: none;">
+        <h2>👨‍🎓 Dành cho Học sinh</h2>
+        <ul class="rule-list">
+          <li>Xuất trình <b>Số hiệu học sinh</b> khi mượn sách tại quầy.</li>
+          <li>Mỗi lần được mượn tối đa <b>03 quyển sách</b> trong vòng <b>14 ngày</b>.</li>
+          <li>Giữ gìn sách cẩn thận, không viết vẽ, làm rách hoặc làm bẩn sách.</li>
+          <li>Nếu làm mất hoặc hư hỏng sách, phải bồi thường theo giá trị thực tế.</li>
+          <li>Giữ trật tự tuyệt đối, không ăn uống trong thư viện.</li>
+        </ul>
+      </div>
+
+      <div class="rule-card" id="rules-teacher" style="display: none;">
+        <h2>👩‍🏫 Dành cho Giáo viên</h2>
+        <ul class="rule-list">
+          <li>Đăng ký mượn sách qua tài khoản cá nhân trên hệ thống.</li>
+          <li>Thời gian mượn tối đa <b>30 ngày</b>.</li>
+          <li>Có trách nhiệm bảo quản sách và trả trước khi kết thúc học kỳ.</li>
+        </ul>
+      </div>
+
+      <div class="rule-card punish-card" id="punish-box" style="display: none;">
+        <h2>🚫 Xử lý Vi phạm</h2>
+        <ul class="rule-list punish-list" id="punish-content">
+          </ul>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <b>💡 Lưu ý chung:</b> Hệ thống tự động nhắc nợ nếu quá hạn trên 03 ngày.
+    </div>
+  </div>
+</main>
+
+<script src="script.js"></script>
+<script>
+  initPage('rules'); // Khởi tạo giao diện chung
+  const currentUser = getCurrentUser(); // Lấy thông tin người dùng
+
+  if (currentUser) {
+    const role = currentUser.role;
+    const studentCard = document.getElementById('rules-student');
+    const teacherCard = document.getElementById('rules-teacher');
+    const punishBox   = document.getElementById('punish-box');
+    const punishContent = document.getElementById('punish-content');
+
+    // Hiển thị bảng phạt
+    if (punishBox) punishBox.style.display = 'block';
+
+    if (role === 'student') {
+      if (studentCard) studentCard.style.display = 'block';
+      // Thêm nội dung phạt cho học sinh
+      punishContent.innerHTML = `
+        <li><b>Trả trễ hạn:</b> Tạm dừng quyền mượn sách 01 tuần cho mỗi ngày trễ.</li>
+        <li><b>Làm hỏng sách:</b> Phạt tiền sửa chữa hoặc mua mới tùy mức độ.</li>
+        <li><b>Mất sách:</b> Đền bù 100% giá trị sách kèm phí xử lý.</li>
+      `;
+    } else if (role === 'teacher') {
+      if (teacherCard) teacherCard.style.display = 'block';
+      // Thêm nội dung phạt cho giáo viên
+      punishContent.innerHTML = `
+        <li><b>Trễ hạn học kỳ:</b> Hệ thống tạm khóa chức năng đăng ký mượn mới.</li>
+        <li><b>Mất/Hỏng tài liệu:</b> Hoàn trả tài liệu tương đương cho thư viện.</li>
+      `;
+    } else if (role === 'librarian') {
+      if (studentCard) studentCard.style.display = 'block';
+      if (teacherCard) teacherCard.style.display = 'block';
+      punishContent.innerHTML = `<li>Thủ thư có quyền áp dụng các mức phạt trên đối với người vi phạm.</li>`;
+    }
+  }
+</script>
