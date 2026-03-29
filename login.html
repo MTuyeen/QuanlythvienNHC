@@ -194,23 +194,30 @@
     const btn = document.getElementById('btn-login');
     btn.disabled = true; btn.textContent = 'Đang đăng nhập...';
 
-    // Nếu chưa sync xong, đợi sync rồi mới login
-    function tryLogin() {
-      const result = doLogin({ username, password }); // ★ FIX: truyền object thay vì 2 args riêng lẻ
-      btn.disabled = false; btn.innerHTML = '🔑 Đăng nhập';
-      const msgs = {
+function tryLogin() {
+    // Truyền thẳng object vào, doLogin ở script.js đã được sửa để nhận object
+    const result = doLogin({ username, password }); 
+    
+    btn.disabled = false; 
+    btn.innerHTML = '🔑 Đăng nhập';
+    
+    const msgs = {
         not_found: 'Tên đăng nhập không tồn tại',
         wrong_pwd: 'Mật khẩu không đúng',
         pending:   'Tài khoản đang chờ thủ thư phê duyệt',
         rejected:  'Tài khoản đã bị từ chối. Liên hệ thủ thư.',
-      };
-      if (result === 'success') {
+    };
+
+    if (result === 'success') {
         toast('Đăng nhập thành công! Đang chuyển trang...', 'success');
-        setTimeout(() => location.href='dashboard.html', 700);
-      } else {
-        toast(msgs[result]||'Lỗi đăng nhập', 'error');
-      }
+        setTimeout(() => {
+            // Đảm bảo chuyển vào trang dashboard
+            window.location.replace('dashboard.html');
+        }, 700);
+    } else {
+        toast(msgs[result] || 'Lỗi đăng nhập', 'error');
     }
+}
 
     if (_loginSynced) {
       setTimeout(tryLogin, 300);

@@ -2,8 +2,7 @@
 // ── PHIÊN BẢN DỮ LIỆU ────────────────────────────────────────
 const DB_VERSION = 'nhc4_v3_2026';
 
-const WebApp_URL = 'https://script.google.com/macros/s/AKfycbzfnxFEr6PwxlwDZO6qJcB2Z1MICXrxKu2SgnndzD3IhnRUG7FfJbP-xHCMv0I1bjcAGQ/exec';
-
+const WebApp_URL = 'https://script.google.com/macros/s/AKfycbzoZKBfD42uvAWe-iB9bzQGTYJwBRKzD1dGuCwinRpXGi6v_fdUiIJj3IqvaxV1C-C_bQ/exec';
 const GS = {
   USER:     WebApp_URL,
   BOOK:     WebApp_URL,
@@ -351,31 +350,30 @@ function getCurrentUser() {
 }
 
 // Thêm từ khóa async để đợi dữ liệu tải về
-function doLogin(username, password) {
-  // 1. Tài khoản admin root cố định
+// Tìm đến hàm doLogin trong script.js và thay bằng đoạn này:
+function doLogin(loginData) {
+  const { username, password } = loginData; // Giải nén object truyền từ login.html
+
+  // 1. Kiểm tra tài khoản admin root cố định (Ưu tiên số 1)
   if (username === 'MTuyeen' && password === '123') {
     db.set(K.AUTH, 'admin_root');
     return 'success';
   }
 
-  // 2. Gọi lên Google Script để check mật khẩu trực tiếp từ Sheet
-  gsPost(GS.USER, { 
-    action: 'LOGIN', 
-    username: username, 
-    password: password 
-  }, function(res) {
-    if (res.success) {
-      // Đăng nhập đúng: Lưu id và chuyển trang
-      db.set(K.AUTH, res.user.id);
-      toast('Đăng nhập thành công!', 'success');
-      setTimeout(() => { location.href = 'index.html'; }, 800);
-    } else {
-      // Đăng nhập sai hoặc chưa duyệt: Hiện lỗi từ Server trả về
-      toast(res.error, 'error');
-    }
-  });
+  // 2. Kiểm tra tài khoản trong dữ liệu Local (đã được sync từ cloud về)
+  const users = getUsers();
+  const pwds = getPwds();
+  
+  const user = users.find(u => u.username === username);
+  
+  if (!user) return 'not_found';
+  if (pwds[username] !== password) return 'wrong_pwd';
+  if (user.status === 'pending') return 'pending';
+  if (user.status === 'rejected') return 'rejected';
 
-  return 'processing'; // Trả về để tránh code chạy tiếp xuống dưới
+  // Nếu khớp hết
+  db.set(K.AUTH, user.id);
+  return 'success';
 }
 function doLogout() {
   db.del(K.AUTH);
