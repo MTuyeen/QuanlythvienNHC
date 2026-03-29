@@ -169,15 +169,36 @@ function syncFromCloud(callback) {
       if (result.books && result.books.length > 0 &&
           (now - _writeTS.books > WRITE_LOCK_MS)) {
         // ★ FIX: Chuẩn hóa tên field khi nhận sách từ cloud
+        // Google Sheets lưu tiêu đề tiếng Việt nên cần map sang tiếng Anh
         const normalizedBooks = result.books.map(function(b) {
-          return Object.assign({}, b, {
-            avail:     b.avail     !== undefined ? b.avail     : (b.available !== undefined ? Number(b.available) : Number(b.qty || 0)),
-            cover:     b.cover     || b.coverUrl  || '',
-            publisher: b.publisher || b.description || '',
-            pdf:       b.pdf       || '',
-            bCount:    Number(b.bCount) || 0,
-            qty:       Number(b.qty)    || 0,
-          });
+          // Map từ tên cột tiếng Việt (GS) sang tên field tiếng Anh (frontend)
+          var id        = b.id        || b['Mã sách']      || '';
+          var title     = b.title     || b['Tên sách']     || '';
+          var author    = b.author    || b['Tác giả']      || '';
+          var category  = b.category  || b['Thể loại']     || 'Khác';
+          var qty       = Number(b.qty    !== undefined ? b.qty    : (b['Số lượng'] !== undefined ? b['Số lượng'] : 0));
+          var availRaw  = b.avail     !== undefined ? b.avail     :
+                          (b['Còn lại'] !== undefined ? b['Còn lại'] :
+                          (b.available  !== undefined ? b.available  : qty));
+          var avail     = Number(availRaw);
+          var publisher = b.publisher || b['Nhà xuất bản'] || b.description || '';
+          var cover     = b.cover     || b['Link ảnh bìa'] || b.coverUrl    || '';
+          var pdf       = b.pdf       || b['Link sách PDF']|| '';
+          var addedDate = b.addedDate || b['Ngày tải']     || '';
+          var bCount    = Number(b.bCount !== undefined ? b.bCount : (b['Lượt mượn'] !== undefined ? b['Lượt mượn'] : 0));
+          return {
+            id:        String(id),
+            title:     title,
+            author:    author,
+            category:  category,
+            qty:       qty,
+            avail:     avail,
+            publisher: publisher,
+            cover:     cover,
+            pdf:       pdf,
+            addedDate: addedDate,
+            bCount:    bCount,
+          };
         });
         // ★ FIX XÓA SÁCH: Lọc ra các sách đã bị xóa cục bộ (ngăn cloud khôi phục lại)
         const deletedIds = getDeletedBookIds();
