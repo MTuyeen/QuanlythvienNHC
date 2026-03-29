@@ -336,12 +336,12 @@ function getCurrentUser() {
   if (!uid) return null;
 
   if (uid === 'admin_root') {
-    return { id:'admin_root', username:'MTuyeen', name:'Ngọc Tuyền (Admin)', role:'librarian', status:'approved' };
+    return { id:'admin_root', username:'MTuyeen', name:'Minh Tuyên (Admin)', role:'librarian', status:'approved' };
   }
 
   if (typeof uid === 'object' && uid !== null) {
     if (uid.id === 'admin_root') {
-      return { id:'admin_root', username:'MTuyeen', name:'Ngọc Tuyền (Admin)', role:'librarian', status:'approved' };
+      return { id:'admin_root', username:'MTuyeen', name:'Minh Tuyên (Admin)', role:'librarian', status:'approved' };
     }
     return getUsers().find(u => u.id === uid.id) || uid;
   }
