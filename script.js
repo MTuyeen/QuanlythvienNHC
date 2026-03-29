@@ -109,21 +109,20 @@ const K_DEL_BOOKS = 'nhc4_del_books';
 
 function trackDeletedBook(bookId) {
   try {
-    const list = JSON.parse(localStorage.getItem(K_DEL_BOOKS) || '[]');
-    const now = Date.now();
-    // Chỉ giữ các mục trong vòng 48 giờ + thêm ID mới
-    const fresh = list.filter(function(x) { return (now - x.ts) < 172800000; });
-    fresh.push({ id: bookId, ts: now });
+    var list = JSON.parse(localStorage.getItem(K_DEL_BOOKS) || '[]');
+    var now = Date.now();
+    var fresh = list.filter(function(x) { return (now - x.ts) < 172800000; });
+    fresh.push({ id: String(bookId), ts: now });
     localStorage.setItem(K_DEL_BOOKS, JSON.stringify(fresh));
-  } catch (e) {}
+  } catch(e) {}
 }
 
 function getDeletedBookIds() {
   try {
-    const list = JSON.parse(localStorage.getItem(K_DEL_BOOKS) || '[]');
-    const now = Date.now();
+    var list = JSON.parse(localStorage.getItem(K_DEL_BOOKS) || '[]');
+    var now = Date.now();
     return list.filter(function(x) { return (now - x.ts) < 172800000; }).map(function(x) { return x.id; });
-  } catch (e) { return []; }
+  } catch(e) { return []; }
 }
 
 // ── DATA GETTERS ──────────────────────────────────────────────

@@ -20,8 +20,10 @@
 <script src="script.js"></script>
 <script>
 initPage('books');
-const U = getCurrentUser();
-const isLib = U.role === 'librarian';
+
+// ★ FIX: Dùng function thay biến cố định để luôn lấy role mới nhất
+function getCurUser()  { return getCurrentUser(); }
+function checkIsLib()  { var u = getCurUser(); return !!(u && u.role === 'librarian'); }
 
 let searchQ = '', catFilter = 'all', showAddForm = false;
 
@@ -32,220 +34,212 @@ const CATS = ['all', 'SGK10', 'SGK11', 'SGK12', 'Truyện ngắn', 'Tiểu Thuy�
 
 // ── CUSTOM CONFIRM MODAL (thay thế confirm() bị block) ──────────
 function showDeleteConfirm(id) {
-  const books = getBooks();
+  var books = getBooks();
   // ★ FIX: Dùng String() để so sánh ID - tránh type mismatch (number vs string)
-  const b = books.find(function(x) { return String(x.id) === String(id); });
+  var b = books.find(function(x) { return String(x.id) === String(id); });
   if (!b) { toast('Không tìm thấy sách!', 'error'); return; }
 
   // Xóa modal cũ nếu có
-  const old = document.getElementById('del-modal');
+  var old = document.getElementById('del-modal');
   if (old) old.remove();
 
-  const modal = document.createElement('div');
+  var modal = document.createElement('div');
   modal.id = 'del-modal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);padding:16px';
-  modal.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:28px 28px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center">
-      <div style="font-size:44px;margin-bottom:10px">🗑️</div>
-      <p style="font-size:16px;font-weight:700;color:#111827;margin-bottom:6px">Xác nhận xóa sách</p>
-      <p style="font-size:14px;color:#6B7280;margin-bottom:22px">Bạn có chắc muốn xóa sách<br><strong style="color:#DC2626">"${esc(b.title)}"</strong> không?<br><span style="font-size:12px">Hành động này không thể hoàn tác.</span></p>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button onclick="document.getElementById('del-modal').remove()"
-          style="padding:9px 22px;border-radius:8px;border:1.5px solid #D1D5DB;background:#fff;color:#374151;cursor:pointer;font-size:14px;font-weight:600">
-          Hủy
-        </button>
-        <button onclick="doDeleteBook('${esc(String(id))}');document.getElementById('del-modal').remove()"
-          style="padding:9px 22px;border-radius:8px;border:none;background:#DC2626;color:#fff;cursor:pointer;font-size:14px;font-weight:600">
-          🗑️ Xóa sách
-        </button>
-      </div>
-    </div>`;
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:16px';
+  modal.innerHTML =
+    '<div style="background:#fff;border-radius:16px;padding:28px 28px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center">' +
+      '<div style="font-size:44px;margin-bottom:10px">🗑️</div>' +
+      '<p style="font-size:16px;font-weight:700;color:#111827;margin-bottom:6px">Xác nhận xóa sách</p>' +
+      '<p style="font-size:14px;color:#6B7280;margin-bottom:22px">Bạn có chắc muốn xóa sách<br>' +
+        '<strong style="color:#DC2626">"' + b.title.replace(/</g,'&lt;') + '"</strong> không?<br>' +
+        '<span style="font-size:12px">Hành động này không thể hoàn tác.</span></p>' +
+      '<div style="display:flex;gap:10px;justify-content:center">' +
+        '<button onclick="document.getElementById(\'del-modal\').remove()" ' +
+          'style="padding:9px 22px;border-radius:8px;border:1.5px solid #D1D5DB;background:#fff;color:#374151;cursor:pointer;font-size:14px;font-weight:600">' +
+          'Hủy' +
+        '</button>' +
+        '<button onclick="doDeleteBook(\'' + String(id).replace(/'/g,"\\'") + '\');document.getElementById(\'del-modal\').remove()" ' +
+          'style="padding:9px 22px;border-radius:8px;border:none;background:#DC2626;color:#fff;cursor:pointer;font-size:14px;font-weight:600">' +
+          '🗑️ Xóa sách' +
+        '</button>' +
+      '</div>' +
+    '</div>';
   // Click ngoài để đóng
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
 }
 
 function doDeleteBook(id) {
-  const books = getBooks();
+  var books = getBooks();
   // ★ FIX: Dùng String() để so sánh ID - tránh type mismatch (number vs string)
-  const b = books.find(function(x) { return String(x.id) === String(id); });
+  var b = books.find(function(x) { return String(x.id) === String(id); });
   if (!b) { toast('Không tìm thấy sách!', 'error'); return; }
 
-  // ★ Ghi nhớ ID đã xóa (lưu cả dạng string) để ngăn cloud sync khôi phục lại
-  trackDeletedBook(String(id));
+  // ★ Ghi nhớ ID đã xóa để ngăn cloud sync khôi phục lại
+  if (typeof trackDeletedBook === 'function') trackDeletedBook(String(id));
 
-  const newBooks = books.filter(function(x) { return String(x.id) !== String(id); });
+  var newBooks = books.filter(function(x) { return String(x.id) !== String(id); });
   saveBooks(newBooks);
   toast('Đã xóa sách: "' + b.title + '"', 'success');
   render();
 }
 
 function render() {
-  const books = getBooks();
-  const borrows = getBorrows(); // Lấy dữ liệu mượn để check trạng thái nút
-  const q = searchQ.toLowerCase();
-  let filtered = books;
-  if (q) filtered = filtered.filter(b=>b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q));
-  if (catFilter!=='all') filtered = filtered.filter(b=>b.category===catFilter);
+  // ★ FIX: Tính lại isLib mỗi lần render để đảm bảo lấy đúng role
+  var isLib = checkIsLib();
+  var U = getCurUser();
 
-  document.getElementById('content').innerHTML = `
-<div class="page">
-  <div class="page-hd">
-    <h1>📚 Quản lý sách</h1>
-    <p>${books.length} đầu sách · ${filtered.length} kết quả hiển thị</p>
-  </div>
+  var books = getBooks();
+  var borrows = getBorrows();
+  var q = searchQ.toLowerCase();
+  var filtered = books;
+  if (q) filtered = filtered.filter(function(b){ return b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q); });
+  if (catFilter!=='all') filtered = filtered.filter(function(b){ return b.category===catFilter; });
 
-  ${isLib&&showAddForm ? addFormHtml() : ''}
+  document.getElementById('content').innerHTML =
+'<div class="page">' +
+  '<div class="page-hd">' +
+    '<h1>📚 Quản lý sách</h1>' +
+    '<p>' + books.length + ' đầu sách · ' + filtered.length + ' kết quả hiển thị</p>' +
+  '</div>' +
+  (isLib && showAddForm ? addFormHtml() : '') +
+  '<div class="toolbar">' +
+    '<div class="sbox">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<input type="text" id="sBooks" placeholder="Tìm tiêu đề, tác giả, thể loại..." value="' + esc(searchQ) + '" oninput="onSearch(this.value)">' +
+    '</div>' +
+    (isLib ? '<button class="btn btn-primary" onclick="toggleAddForm()">' + (showAddForm ? '✕ Đóng' : '➕ Thêm sách') + '</button>' : '') +
+  '</div>' +
+  '<div class="filter-tabs">' +
+    CATS.map(function(c){ return '<button class="ftab' + (catFilter===c?' active':'') + '" onclick="setCat(\'' + c + '\')">' + (c==='all'?'Tất cả ('+books.length+')':c) + '</button>'; }).join('') +
+  '</div>' +
+  '<div id="books-grid" class="books-grid">' +
+    (filtered.length===0
+      ? '<div class="empty-books" style="grid-column:1/-1;padding:48px;text-align:center;background:white;border:2px dashed var(--border);border-radius:var(--r-xl);color:var(--text-xs)">' +
+          '<p style="font-size:40px;margin-bottom:8px">📚</p>' +
+          '<p style="font-size:15px;font-weight:600;color:var(--text-m);margin-bottom:4px">Không tìm thấy sách phù hợp</p>' +
+        '</div>'
+      : filtered.map(function(b) {
+          var myActive = U && U.role !== 'librarian' && borrows.some(function(r){ return r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'); });
+          return bookCardHtml(b, myActive, isLib);
+        }).join('')) +
+  '</div>' +
+'</div>';
 
-  <div class="toolbar">
-    <div class="sbox">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="sBooks" placeholder="Tìm tiêu đề, tác giả, thể loại..." value="${esc(searchQ)}" oninput="onSearch(this.value)">
-    </div>
-    ${isLib?`<button class="btn btn-primary" onclick="toggleAddForm()">${showAddForm?'✕ Đóng':'➕ Thêm sách'}</button>`:''}
-  </div>
-
-  <div class="filter-tabs">
-    ${CATS.map(c=>`<button class="ftab${catFilter===c?' active':''}" onclick="setCat('${c}')">${c==='all'?'Tất cả ('+books.length+')':c}</button>`).join('')}
-  </div>
-
-  <div id="books-grid" class="books-grid">
-    ${filtered.length===0
-      ? `<div class="empty-books" style="grid-column:1/-1;padding:48px;text-align:center;background:white;border:2px dashed var(--border);border-radius:var(--r-xl);color:var(--text-xs)">
-            <p style="font-size:40px;margin-bottom:8px">📚</p>
-            <p style="font-size:15px;font-weight:600;color:var(--text-m);margin-bottom:4px">Không tìm thấy sách phù hợp</p>
-          </div>`
-      : filtered.map(b => {
-          // Tính myActive truyền vào thẻ sách
-          const myActive = U.role !== 'librarian' && borrows.some(r => r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'));
-          return bookCardHtml(b, myActive);
-        }).join('')}
-  </div>
-</div>`;
-
-  setTimeout(()=>{ const el=document.getElementById('sBooks'); if(el&&searchQ)el.focus(); },0);
+  setTimeout(function(){ var el=document.getElementById('sBooks'); if(el&&searchQ)el.focus(); },0);
 }
 
 function addFormHtml() {
-  return `
-<div class="card" style="max-width:620px;margin-bottom:20px">
-  <div class="card-hd">➕ Thêm sách mới</div>
-  <form class="frm" onsubmit="handleAddBook(event)">
-    <div class="frm-row">
-      <div class="field"><label>Tiêu đề <span class="req">*</span></label><input type="text" id="ab-title" placeholder="Tên sách" required></div>
-      <div class="field"><label>Tác giả <span class="req">*</span></label><input type="text" id="ab-author" placeholder="Tác giả" required></div>
-    </div>
-    <div class="frm-row">
-      <div class="field"><label>Thể loại</label>
-        <select id="ab-cat">${CATS.slice(1).map(c=>`<option>${c}</option>`).join('')}</select>
-      </div>
-      <div class="field"><label>Số lượng <span class="req">*</span></label><input type="number" id="ab-qty" value="1" min="1" max="999" required></div>
-    </div>
-    <div class="field"><label>Nhà xuất bản</label><input type="text" id="ab-pub" placeholder="NXB Giáo dục..."></div>
-    <div class="field"><label>Ảnh bìa (URL)</label>
-      <input type="text" id="ab-cover" placeholder="https://images.unsplash.com/...">
-    </div>
-    <div class="field"><label>Tài liệu PDF (Link đọc online)</label>
-      <input type="text" id="ab-pdf" placeholder="Dán link PDF hoặc Google Drive...">
-    </div>
-    <div style="display:flex;gap:10px;margin-top:10px">
-      <button type="submit" class="btn btn-primary">💾 Lưu sách</button>
-      <button type="button" class="btn btn-ghost" onclick="toggleAddForm()">Hủy</button>
-    </div>
-  </form>
-</div>`;
+  return '<div class="card" style="max-width:620px;margin-bottom:20px">' +
+    '<div class="card-hd">➕ Thêm sách mới</div>' +
+    '<form class="frm" onsubmit="handleAddBook(event)">' +
+      '<div class="frm-row">' +
+        '<div class="field"><label>Tiêu đề <span class="req">*</span></label><input type="text" id="ab-title" placeholder="Tên sách" required></div>' +
+        '<div class="field"><label>Tác giả <span class="req">*</span></label><input type="text" id="ab-author" placeholder="Tác giả" required></div>' +
+      '</div>' +
+      '<div class="frm-row">' +
+        '<div class="field"><label>Thể loại</label>' +
+          '<select id="ab-cat">' + CATS.slice(1).map(function(c){ return '<option>'+c+'</option>'; }).join('') + '</select>' +
+        '</div>' +
+        '<div class="field"><label>Số lượng <span class="req">*</span></label><input type="number" id="ab-qty" value="1" min="1" max="999" required></div>' +
+      '</div>' +
+      '<div class="field"><label>Nhà xuất bản</label><input type="text" id="ab-pub" placeholder="NXB Giáo dục..."></div>' +
+      '<div class="field"><label>Ảnh bìa (URL)</label>' +
+        '<input type="text" id="ab-cover" placeholder="https://images.unsplash.com/...">' +
+      '</div>' +
+      '<div class="field"><label>Tài liệu PDF (Link đọc online)</label>' +
+        '<input type="text" id="ab-pdf" placeholder="Dán link PDF hoặc Google Drive...">' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;margin-top:10px">' +
+        '<button type="submit" class="btn btn-primary">💾 Lưu sách</button>' +
+        '<button type="button" class="btn btn-ghost" onclick="toggleAddForm()">Hủy</button>' +
+      '</div>' +
+    '</form>' +
+  '</div>';
 }
 
-function bookCardHtml(b, myActive) { 
-  const cc = (typeof CAT_COLORS !== 'undefined' && CAT_COLORS[b.category]) || {bg:'#F3F4F6', c:'#374151'}; 
-  // ★ FIX: Không dùng via.placeholder.com (domain không tồn tại)
-  // Dùng div placeholder thay cho img khi không có ảnh
-  const hasRealCover = b.cover && b.cover.startsWith('http');
-  const coverHtml = hasRealCover
-    ? `<img src="${esc(b.cover)}" alt="${esc(b.title)}" loading="lazy"
-          style="width:100%;height:100%;object-fit:cover;"
-          onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)\\'>📚</div>'">`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)">📚</div>`;
-  
-  return `
-  <div class="book-card">
-    <div class="book-cover">
-      ${coverHtml}
-      ${b.avail === 0 ? `<div class="book-out-overlay"><span>Hết sách</span></div>` : ''}
-    </div>
-    <div class="book-info">
-      <p class="book-title">${esc(b.title)}</p>
-      <p class="book-author">${esc(b.author)}</p>
-      <div class="book-meta">
-        <span class="cat-tag" style="background:${cc.bg};color:${cc.c}">${esc(b.category)}</span>
-        <span class="book-avail">Còn ${b.avail}/${b.qty}</span>
-      </div>
-      <div class="book-actions">
-        ${b.avail > 0 && (isLib || !myActive) ? `<button class="btn btn-sm" onclick="borrowBook('${b.id}')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE">📖 Mượn</button>` : ''}
-        
-        ${b.pdf ? `<a href="${esc(b.pdf)}" target="_blank" class="btn btn-sm" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">👁️ Đọc online</a>` : ''}
-        
-        ${isLib ? `<button class="btn btn-sm btn-danger" onclick="showDeleteConfirm('${b.id}')">🗑️</button>` : ''}
-      </div>
-    </div>
-  </div>`;
+// ★ FIX: Nhận isLib làm tham số thay vì dùng biến toàn cục
+function bookCardHtml(b, myActive, isLib) {
+  var cc = (typeof CAT_COLORS !== 'undefined' && CAT_COLORS[b.category]) || {bg:'#F3F4F6', c:'#374151'};
+  var hasRealCover = b.cover && b.cover.startsWith('http');
+  var coverHtml = hasRealCover
+    ? '<img src="' + esc(b.cover) + '" alt="' + esc(b.title) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML=\'<div style=\\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)\\\'>📚</div>\'">'
+    : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)">📚</div>';
+
+  // Nút xóa - chỉ hiện cho librarian
+  var deleteBtn = isLib
+    ? '<button class="btn btn-sm btn-danger" onclick="showDeleteConfirm(\'' + String(b.id).replace(/'/g,"\\'") + '\')" title="Xóa sách" style="background:#FEE2E2;color:#DC2626;border:1px solid #FECACA">🗑️ Xóa</button>'
+    : '';
+
+  return '<div class="book-card">' +
+    '<div class="book-cover">' +
+      coverHtml +
+      (b.avail === 0 ? '<div class="book-out-overlay"><span>Hết sách</span></div>' : '') +
+    '</div>' +
+    '<div class="book-info">' +
+      '<p class="book-title">' + esc(b.title) + '</p>' +
+      '<p class="book-author">' + esc(b.author) + '</p>' +
+      '<div class="book-meta">' +
+        '<span class="cat-tag" style="background:' + cc.bg + ';color:' + cc.c + '">' + esc(b.category) + '</span>' +
+        '<span class="book-avail">Còn ' + b.avail + '/' + b.qty + '</span>' +
+      '</div>' +
+      '<div class="book-actions">' +
+        (b.avail > 0 && (isLib || !myActive) ? '<button class="btn btn-sm" onclick="borrowBook(\'' + b.id + '\')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE">📖 Mượn</button>' : '') +
+        (b.pdf ? '<a href="' + esc(b.pdf) + '" target="_blank" class="btn btn-sm" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">👁️ Đọc online</a>' : '') +
+        deleteBtn +
+      '</div>' +
+    '</div>' +
+  '</div>';
 }
 
 function onSearch(v) { searchQ=v; renderGrid(); }
-function setCat(c)    { catFilter=c; render(); }
+function setCat(c)   { catFilter=c; render(); }
 function toggleAddForm() { showAddForm=!showAddForm; render(); }
 
 function renderGrid() {
-  const books = getBooks();
-  const borrows = getBorrows(); 
-  const q = searchQ.toLowerCase();
-  
-  let filtered = books;
-  if (q) filtered = filtered.filter(b=>b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q));
-  if (catFilter!=='all') filtered = filtered.filter(b=>b.category===catFilter);
-  
-  const grid = document.getElementById('books-grid');
+  var isLib = checkIsLib();
+  var U = getCurUser();
+  var books = getBooks();
+  var borrows = getBorrows();
+  var q = searchQ.toLowerCase();
+  var filtered = books;
+  if (q) filtered = filtered.filter(function(b){ return b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||(b.category||'').toLowerCase().includes(q); });
+  if (catFilter!=='all') filtered = filtered.filter(function(b){ return b.category===catFilter; });
+  var grid = document.getElementById('books-grid');
   if (grid) {
-    grid.innerHTML = filtered.length === 0 
-      ? '<div class="empty-books" style="grid-column:1/-1;padding:32px;text-align:center;">📭 Không tìm thấy sách phù hợp</div>' 
-      : filtered.map(b => {
-          const myActive = U.role !== 'librarian' && borrows.some(r => r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'));
-          return bookCardHtml(b, myActive); 
+    grid.innerHTML = filtered.length === 0
+      ? '<div class="empty-books" style="grid-column:1/-1;padding:32px;text-align:center;">📭 Không tìm thấy sách phù hợp</div>'
+      : filtered.map(function(b) {
+          var myActive = U && U.role !== 'librarian' && borrows.some(function(r){ return r.bookId === b.id && r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'); });
+          return bookCardHtml(b, myActive, isLib);
         }).join('');
   }
 }
 
 function handleAddBook(e) {
   e.preventDefault();
-  const title  = document.getElementById('ab-title').value.trim();
-  const author = document.getElementById('ab-author').value.trim();
-  const cat    = document.getElementById('ab-cat').value;
-  const qty    = parseInt(document.getElementById('ab-qty').value)||1;
-  const pub    = document.getElementById('ab-pub').value.trim();
-  const cover  = document.getElementById('ab-cover').value.trim();
-  const pdf    = document.getElementById('ab-pdf').value.trim();
-
+  var title  = document.getElementById('ab-title').value.trim();
+  var author = document.getElementById('ab-author').value.trim();
+  var cat    = document.getElementById('ab-cat').value;
+  var qty    = parseInt(document.getElementById('ab-qty').value)||1;
+  var pub    = document.getElementById('ab-pub').value.trim();
+  var cover  = document.getElementById('ab-cover').value.trim();
+  var pdf    = document.getElementById('ab-pdf').value.trim();
   if (!title || !author) { toast('Vui lòng nhập tiêu đề và tác giả','error'); return; }
-  
-  const books = getBooks();
-  const b = { 
-    id:'b'+Date.now(), title, author, category:cat||'Khác', qty, avail:qty, publisher:pub,
-    cover:cover||'',
-    pdf: pdf, addedDate:todayStr(), bCount:0 
+  var books = getBooks();
+  var b = {
+    id:'b'+Date.now(), title:title, author:author, category:cat||'Khác',
+    qty:qty, avail:qty, publisher:pub, cover:cover||'',
+    pdf:pdf, addedDate:todayStr(), bCount:0
   };
   books.push(b);
-  // ★ FIX: Chỉ gọi saveBooks (đã bao gồm SAVE_BOOKS lên cloud).
-  // Bỏ gsPost ADD_BOOK riêng vì nó gây trùng lặp sách trên Google Sheets.
   saveBooks(books);
-  toast(`Đã thêm sách: "${b.title}"`, 'success');
+  toast('Đã thêm sách: "' + b.title + '"', 'success');
   showAddForm = false;
   render();
 }
 
-function deleteBook(id) {
-  // Chuyển sang showDeleteConfirm để dùng custom modal thay confirm()
-  showDeleteConfirm(id);
-}
+function deleteBook(id) { showDeleteConfirm(id); }
 
 function borrowBook(bookId) {
   sessionStorage.setItem('quick_borrow_book', bookId);
