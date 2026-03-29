@@ -25,7 +25,60 @@ const isLib = U.role === 'librarian';
 
 let searchQ = '', catFilter = 'all', showAddForm = false;
 
+// ★ Sau khi cloud sync xong → render lại danh sách sách
+function onSyncComplete() { render(); }
+
 const CATS = ['all', 'SGK10', 'SGK11', 'SGK12', 'Truyện ngắn', 'Tiểu Thuyết', 'Truyện tranh', 'Kỹ năng sống', 'Khác'];
+
+// ── CUSTOM CONFIRM MODAL (thay thế confirm() bị block) ──────────
+function showDeleteConfirm(id) {
+  const books = getBooks();
+  // ★ FIX: Dùng String() để so sánh ID - tránh type mismatch (number vs string)
+  const b = books.find(function(x) { return String(x.id) === String(id); });
+  if (!b) { toast('Không tìm thấy sách!', 'error'); return; }
+
+  // Xóa modal cũ nếu có
+  const old = document.getElementById('del-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'del-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);padding:16px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 28px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center">
+      <div style="font-size:44px;margin-bottom:10px">🗑️</div>
+      <p style="font-size:16px;font-weight:700;color:#111827;margin-bottom:6px">Xác nhận xóa sách</p>
+      <p style="font-size:14px;color:#6B7280;margin-bottom:22px">Bạn có chắc muốn xóa sách<br><strong style="color:#DC2626">"${esc(b.title)}"</strong> không?<br><span style="font-size:12px">Hành động này không thể hoàn tác.</span></p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="document.getElementById('del-modal').remove()"
+          style="padding:9px 22px;border-radius:8px;border:1.5px solid #D1D5DB;background:#fff;color:#374151;cursor:pointer;font-size:14px;font-weight:600">
+          Hủy
+        </button>
+        <button onclick="doDeleteBook('${esc(String(id))}');document.getElementById('del-modal').remove()"
+          style="padding:9px 22px;border-radius:8px;border:none;background:#DC2626;color:#fff;cursor:pointer;font-size:14px;font-weight:600">
+          🗑️ Xóa sách
+        </button>
+      </div>
+    </div>`;
+  // Click ngoài để đóng
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function doDeleteBook(id) {
+  const books = getBooks();
+  // ★ FIX: Dùng String() để so sánh ID - tránh type mismatch (number vs string)
+  const b = books.find(function(x) { return String(x.id) === String(id); });
+  if (!b) { toast('Không tìm thấy sách!', 'error'); return; }
+
+  // ★ Ghi nhớ ID đã xóa (lưu cả dạng string) để ngăn cloud sync khôi phục lại
+  trackDeletedBook(String(id));
+
+  const newBooks = books.filter(function(x) { return String(x.id) !== String(id); });
+  saveBooks(newBooks);
+  toast('Đã xóa sách: "' + b.title + '"', 'success');
+  render();
+}
 
 function render() {
   const books = getBooks();
@@ -105,11 +158,19 @@ function addFormHtml() {
 
 function bookCardHtml(b, myActive) { 
   const cc = (typeof CAT_COLORS !== 'undefined' && CAT_COLORS[b.category]) || {bg:'#F3F4F6', c:'#374151'}; 
+  // ★ FIX: Không dùng via.placeholder.com (domain không tồn tại)
+  // Dùng div placeholder thay cho img khi không có ảnh
+  const hasRealCover = b.cover && b.cover.startsWith('http');
+  const coverHtml = hasRealCover
+    ? `<img src="${esc(b.cover)}" alt="${esc(b.title)}" loading="lazy"
+          style="width:100%;height:100%;object-fit:cover;"
+          onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)\\'>📚</div>'">`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE)">📚</div>`;
   
   return `
   <div class="book-card">
     <div class="book-cover">
-      <img src="${esc(b.cover || 'https://via.placeholder.com/150?text=No+Cover')}" alt="${esc(b.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Cover'">
+      ${coverHtml}
       ${b.avail === 0 ? `<div class="book-out-overlay"><span>Hết sách</span></div>` : ''}
     </div>
     <div class="book-info">
@@ -124,7 +185,7 @@ function bookCardHtml(b, myActive) {
         
         ${b.pdf ? `<a href="${esc(b.pdf)}" target="_blank" class="btn btn-sm" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">👁️ Đọc online</a>` : ''}
         
-        ${isLib ? `<button class="btn btn-sm btn-danger" onclick="deleteBook('${b.id}')">🗑️</button>` : ''}
+        ${isLib ? `<button class="btn btn-sm btn-danger" onclick="showDeleteConfirm('${b.id}')">🗑️</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -169,24 +230,21 @@ function handleAddBook(e) {
   const books = getBooks();
   const b = { 
     id:'b'+Date.now(), title, author, category:cat||'Khác', qty, avail:qty, publisher:pub,
-    cover:cover||'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80',
+    cover:cover||'',
     pdf: pdf, addedDate:todayStr(), bCount:0 
   };
   books.push(b);
+  // ★ FIX: Chỉ gọi saveBooks (đã bao gồm SAVE_BOOKS lên cloud).
+  // Bỏ gsPost ADD_BOOK riêng vì nó gây trùng lặp sách trên Google Sheets.
   saveBooks(books);
-  gsPost(GS.BOOK, { action:'ADD_BOOK', title:b.title, author:b.author, category:b.category, qty:b.qty, publisher:b.publisher||'', pdf: b.pdf, addedDate:b.addedDate, addedBy:U.name });
   toast(`Đã thêm sách: "${b.title}"`, 'success');
   showAddForm = false;
   render();
 }
 
 function deleteBook(id) {
-  const books = getBooks();
-  const b = books.find(x=>x.id===id);
-  if (!b || !confirm(`Xóa sách "${b.title}"?`)) return;
-  saveBooks(books.filter(x=>x.id!==id));
-  toast(`Đã xóa sách: "${b.title}"`, 'success');
-  render();
+  // Chuyển sang showDeleteConfirm để dùng custom modal thay confirm()
+  showDeleteConfirm(id);
 }
 
 function borrowBook(bookId) {

@@ -149,6 +149,14 @@
   // Nếu đã đăng nhập → chuyển thẳng vào dashboard
   if (getCurrentUser()) location.replace('dashboard.html');
 
+  // ★ ĐỒNG BỘ DỮ LIỆU TỪ CLOUD KHI MỞ TRANG LOGIN ★
+  // Để máy mới cũng có danh sách users + mật khẩu từ cloud
+  let _loginSynced = false;
+  syncFromCloud(function() {
+    _loginSynced = true;
+    console.log('✅ Login page: đã đồng bộ users/pwds từ cloud');
+  });
+
   let currentRole = 'student';
 
   function switchTab(t) {
@@ -185,8 +193,10 @@
     if (!username || !password) { toast('Vui lòng nhập đầy đủ thông tin','error'); return; }
     const btn = document.getElementById('btn-login');
     btn.disabled = true; btn.textContent = 'Đang đăng nhập...';
-    setTimeout(() => {
-      const result = doLogin(username, password);
+
+    // Nếu chưa sync xong, đợi sync rồi mới login
+    function tryLogin() {
+      const result = doLogin({ username, password }); // ★ FIX: truyền object thay vì 2 args riêng lẻ
       btn.disabled = false; btn.innerHTML = '🔑 Đăng nhập';
       const msgs = {
         not_found: 'Tên đăng nhập không tồn tại',
@@ -200,7 +210,21 @@
       } else {
         toast(msgs[result]||'Lỗi đăng nhập', 'error');
       }
-    }, 400);
+    }
+
+    if (_loginSynced) {
+      setTimeout(tryLogin, 300);
+    } else {
+      // Chờ sync tối đa 3 giây, rồi thử login
+      let waited = 0;
+      const interval = setInterval(() => {
+        waited += 200;
+        if (_loginSynced || waited >= 3000) {
+          clearInterval(interval);
+          tryLogin();
+        }
+      }, 200);
+    }
   }
 
   function handleRegister(e) {

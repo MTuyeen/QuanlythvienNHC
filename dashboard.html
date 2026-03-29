@@ -57,6 +57,9 @@
 initPage('dashboard');
 const U = getCurrentUser();
 
+// ★ Sau khi cloud sync xong → render lại trang chủ
+function onSyncComplete() { render(); }
+
 function render() {
   const books   = getBooks();
   const users   = getUsers();
@@ -89,7 +92,8 @@ function render() {
       ];
 
   /* ── Sách mới / phổ biến ── */
-  const newBooks     = [...books].sort((a,b)=>b.addedDate.localeCompare(a.addedDate)).slice(0,4);
+  // ★ FIX: Dùng || '' để tránh lỗi localeCompare khi addedDate undefined
+  const newBooks     = [...books].sort((a,b)=>(b.addedDate||'').localeCompare(a.addedDate||'')).slice(0,4);
   const popularBooks = [...books].sort((a,b)=>(b.bCount||0)-(a.bCount||0)).slice(0,4);
 
   /* ── Bảng sách đang mượn (HS/GV) ── */
@@ -213,7 +217,7 @@ function bookCardHtml(b, rank=0) {
     <h3 class="book-title">${esc(b.title)}</h3>
     <p class="book-author">${esc(b.author)}</p>
     <div class="book-meta">
-      <span class="book-cat" style="background:${cc}20; color:${cc}">${esc(b.category)}</span>
+      <span class="book-cat" style="background:${cc.bg}; color:${cc.c}">${esc(b.category)}</span>
       <span class="book-qty">SL: ${b.qty}</span>
     </div>
   </div>
