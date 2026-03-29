@@ -349,29 +349,35 @@ function getCurrentUser() {
   return getUsers().find(u => u.id === uid) || null;
 }
 
-// Thêm từ khóa async để đợi dữ liệu tải về
-// Tìm đến hàm doLogin trong script.js và thay bằng đoạn này:
 function doLogin(loginData) {
-  const { username, password } = loginData; // Giải nén object truyền từ login.html
+  // Giải nén dữ liệu từ object gửi sang
+  const { username, password } = loginData; 
 
-  // 1. Kiểm tra tài khoản admin root cố định (Ưu tiên số 1)
+  // 1. Kiểm tra ADMIN ROOT (Luôn ưu tiên, không cần đợi sync)
   if (username === 'MTuyeen' && password === '123') {
     db.set(K.AUTH, 'admin_root');
     return 'success';
   }
 
-  // 2. Kiểm tra tài khoản trong dữ liệu Local (đã được sync từ cloud về)
-  const users = getUsers();
-  const pwds = getPwds();
+  // 2. Lấy dữ liệu từ Local Storage (đã sync từ Sheets về)
+  const users = getUsers(); // Mảng các object user
+  const pwds = getPwds();   // Object chứa {username: password}
   
   const user = users.find(u => u.username === username);
   
   if (!user) return 'not_found';
-  if (pwds[username] !== password) return 'wrong_pwd';
+
+  // Lấy mật khẩu và ép kiểu về String để so sánh chính xác
+  const storedPwd = String(pwds[username] || '').trim();
+  const inputPwd  = String(password || '').trim();
+
+  if (storedPwd !== inputPwd) return 'wrong_pwd';
+  
+  // 3. Kiểm tra trạng thái phê duyệt
   if (user.status === 'pending') return 'pending';
   if (user.status === 'rejected') return 'rejected';
 
-  // Nếu khớp hết
+  // Nếu mọi thứ OK
   db.set(K.AUTH, user.id);
   return 'success';
 }

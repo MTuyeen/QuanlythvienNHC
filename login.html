@@ -11,13 +11,11 @@
 <div id="toast-container"></div>
 
 <div class="login-wrap">
-  <!-- LEFT: Branding -->
   <div class="login-left">
     <div class="ll-blob1"></div><div class="ll-blob2"></div><div class="ll-blob3"></div>
     <div class="ll-brand">
-      <!-- Thử PNG trước, nếu lỗi thì dùng SVG, nếu vẫn lỗi thì dùng emoji -->
       <img src="unnamed.jpg" alt="Logo NHC" class="ll-logo"
-        onerror="this.onerror=null;this.src='unnamed.jpg';this.onerror=function(){this.outerHTML='<div class=ll-logo-fb>📚</div>'};">
+        onerror="this.onerror=null;this.outerHTML='<div class=ll-logo-fb>📚</div>';">
       <p class="ll-school">THPT Nguyễn Hữu Cảnh</p>
       <p class="ll-school-sub">Đồng Nai · Thành lập 1998</p>
       <div class="ll-badge">📚 Hệ thống Thư viện Trực tuyến</div>
@@ -32,13 +30,9 @@
     <p class="ll-copy">© 2026 Thư viện THPT Nguyễn Hữu Cảnh</p>
   </div>
 
-  <!-- RIGHT: Form -->
   <div class="login-right">
-    <!-- Mobile brand -->
     <div class="mobile-brand">
-      <img src="unnamed.jpg" alt="Logo"
-        style="width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.1)"
-        onerror="this.onerror=null;this.src='unnamed.jpg';this.onerror=function(){this.outerHTML='<div class=mobile-brand-fb>📚</div>'};">
+      <img src="unnamed.jpg" alt="Logo" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
       <div>
         <p class="mobile-brand-name">THPT Nguyễn Hữu Cảnh</p>
         <p class="mobile-brand-sub">Hệ thống Thư viện</p>
@@ -46,13 +40,11 @@
     </div>
 
     <div class="card login-card">
-      <!-- Tabs -->
       <div class="auth-tabs">
         <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">🔑 Đăng nhập</button>
         <button class="auth-tab" id="tab-register" onclick="switchTab('register')">📝 Đăng ký</button>
       </div>
 
-      <!-- LOGIN FORM -->
       <div id="pane-login">
         <form class="frm" onsubmit="handleLogin(event)">
           <div class="field">
@@ -73,7 +65,6 @@
         </form>
       </div>
 
-      <!-- REGISTER FORM -->
       <div id="pane-register" style="display:none">
         <form class="frm" onsubmit="handleRegister(event)">
           <div class="field">
@@ -81,7 +72,7 @@
             <div class="iw"><span class="ii">@</span>
               <input type="text" id="r-user" placeholder="VD: NguyenVanA123" required>
             </div>
-            <small>Không dấu, không khoảng trắng. Dùng để đăng nhập.</small>
+            <small>Không dấu, không khoảng trắng.</small>
           </div>
           <div class="field">
             <label>Họ và tên <span class="req">*</span></label>
@@ -139,30 +130,32 @@
         </form>
       </div>
     </div>
-
-    <p class="login-note">Sau khi đăng ký, tài khoản cần được thủ thư phê duyệt mới đăng nhập được.</p>
+    <p class="login-note">Sau khi đăng ký, tài khoản cần được thủ thư phê duyệt.</p>
   </div>
 </div>
 
 <script src="script.js"></script>
 <script>
-  // Nếu đã đăng nhập → chuyển thẳng vào dashboard
-  if (getCurrentUser()) location.replace('dashboard.html');
+  // 1. Chuyển hướng nếu đã đăng nhập
+  if (typeof getCurrentUser === 'function' && getCurrentUser()) {
+    location.replace('dashboard.html');
+  }
 
-  // ★ ĐỒNG BỘ DỮ LIỆU TỪ CLOUD KHI MỞ TRANG LOGIN ★
-  // Để máy mới cũng có danh sách users + mật khẩu từ cloud
+  // 2. Đồng bộ dữ liệu khi mở trang
   let _loginSynced = false;
-  syncFromCloud(function() {
-    _loginSynced = true;
-    console.log('✅ Login page: đã đồng bộ users/pwds từ cloud');
-  });
+  if (typeof syncFromCloud === 'function') {
+    syncFromCloud(() => {
+      _loginSynced = true;
+      console.log('✅ Đã đồng bộ dữ liệu cloud');
+    });
+  }
 
   let currentRole = 'student';
 
   function switchTab(t) {
-    document.getElementById('pane-login').style.display    = t==='login'    ? '' : 'none';
+    document.getElementById('pane-login').style.display    = t==='login' ? '' : 'none';
     document.getElementById('pane-register').style.display = t==='register' ? '' : 'none';
-    document.getElementById('tab-login').classList.toggle('active',    t==='login');
+    document.getElementById('tab-login').classList.toggle('active', t==='login');
     document.getElementById('tab-register').classList.toggle('active', t==='register');
   }
 
@@ -172,12 +165,11 @@
       document.getElementById('role-'+r)?.classList.toggle('active', r===role);
     });
     document.getElementById('student-fields').style.display = role==='student' ? '' : 'none';
-    ['r-class','r-id'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.required = (role==='student');
-    });
+    const classInp = document.getElementById('r-class');
+    const idInp = document.getElementById('r-id');
+    if (classInp) classInp.required = (role==='student');
+    if (idInp) idInp.required = (role==='student');
   }
-  setRole('student');
 
   function togglePwd(id, btn) {
     const inp = document.getElementById(id);
@@ -186,54 +178,43 @@
     btn.textContent = inp.type==='password' ? '👁️' : '🙈';
   }
 
-  function handleLogin(e) {
-    e.preventDefault();
+  // 3. XỬ LÝ ĐĂNG NHẬP
+  async function handleLogin(e) {
+    if(e) e.preventDefault();
     const username = document.getElementById('l-user').value.trim();
     const password = document.getElementById('l-pwd').value;
-    if (!username || !password) { toast('Vui lòng nhập đầy đủ thông tin','error'); return; }
+
+    if (!username || !password) {
+      toast('Vui lòng nhập tài khoản và mật khẩu', 'error');
+      return;
+    }
+
     const btn = document.getElementById('btn-login');
-    btn.disabled = true; btn.textContent = 'Đang đăng nhập...';
+    btn.disabled = true;
+    btn.innerHTML = 'Đang xác thực...';
 
-function tryLogin() {
-    // Truyền thẳng object vào, doLogin ở script.js đã được sửa để nhận object
-    const result = doLogin({ username, password }); 
-    
-    btn.disabled = false; 
-    btn.innerHTML = '🔑 Đăng nhập';
-    
-    const msgs = {
-        not_found: 'Tên đăng nhập không tồn tại',
-        wrong_pwd: 'Mật khẩu không đúng',
-        pending:   'Tài khoản đang chờ thủ thư phê duyệt',
-        rejected:  'Tài khoản đã bị từ chối. Liên hệ thủ thư.',
-    };
+    // Đảm bảo dữ liệu mới nhất được tải về
+    syncFromCloud(() => {
+      const result = doLogin({ username, password });
+      btn.disabled = false;
+      btn.innerHTML = '🔑 Đăng nhập';
 
-    if (result === 'success') {
-        toast('Đăng nhập thành công! Đang chuyển trang...', 'success');
-        setTimeout(() => {
-            // Đảm bảo chuyển vào trang dashboard
-            window.location.replace('dashboard.html');
-        }, 700);
-    } else {
+      if (result === 'success') {
+        toast('Đăng nhập thành công!', 'success');
+        setTimeout(() => { location.href = 'dashboard.html'; }, 800);
+      } else {
+        const msgs = {
+          not_found: 'Tài khoản không tồn tại',
+          wrong_pwd: 'Mật khẩu không chính xác',
+          pending: 'Tài khoản đang chờ duyệt',
+          rejected: 'Tài khoản bị từ chối'
+        };
         toast(msgs[result] || 'Lỗi đăng nhập', 'error');
-    }
-}
-
-    if (_loginSynced) {
-      setTimeout(tryLogin, 300);
-    } else {
-      // Chờ sync tối đa 3 giây, rồi thử login
-      let waited = 0;
-      const interval = setInterval(() => {
-        waited += 200;
-        if (_loginSynced || waited >= 3000) {
-          clearInterval(interval);
-          tryLogin();
-        }
-      }, 200);
-    }
+      }
+    });
   }
 
+  // 4. XỬ LÝ ĐĂNG KÝ
   function handleRegister(e) {
     e.preventDefault();
     const username = document.getElementById('r-user').value.trim();
@@ -244,23 +225,23 @@ function tryLogin() {
     const cls      = document.getElementById('r-class')?.value.trim()||'';
     const sid      = document.getElementById('r-id')?.value.trim()||'';
 
-    if (!username || !name || !pwd) { toast('Vui lòng điền đầy đủ thông tin (*)','error'); return; }
-    if (currentRole==='student' && (!cls || !sid)) { toast('Học sinh phải nhập Lớp và Số hiệu','error'); return; }
     if (pwd !== cpwd) { toast('Mật khẩu xác nhận không khớp','error'); return; }
-    if (pwd.length < 3) { toast('Mật khẩu phải có ít nhất 3 ký tự','error'); return; }
+    if (pwd.length < 3) { toast('Mật khẩu quá ngắn','error'); return; }
 
     const btn = document.getElementById('btn-reg');
     btn.disabled = true; btn.textContent = 'Đang xử lý...';
+
+    const result = doRegister({ username, name, email, password: pwd, role: currentRole, className: cls, studentId: sid });
+    
     setTimeout(() => {
-      const result = doRegister({ username, name, email, password: pwd, role: currentRole, className: cls, studentId: sid });
-      btn.disabled = false; btn.innerHTML = '📝 Đăng ký tài khoản';
-      if (result === 'success') {
-        toast('Đăng ký thành công! Chờ thủ thư phê duyệt.', 'success', 'Thành công');
-        setTimeout(() => switchTab('login'), 1000);
-      } else {
-        toast('Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.','error');
-      }
-    }, 450);
+        btn.disabled = false; btn.innerHTML = '📝 Đăng ký tài khoản';
+        if (result === 'success') {
+          toast('Đăng ký thành công! Chờ phê duyệt.', 'success');
+          setTimeout(() => switchTab('login'), 1500);
+        } else {
+          toast('Tên đăng nhập đã tồn tại!','error');
+        }
+    }, 500);
   }
 </script>
 </body>
