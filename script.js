@@ -351,36 +351,31 @@ function getCurrentUser() {
 }
 
 // Thêm từ khóa async để đợi dữ liệu tải về
-async function doLogin(username, password) {
-  
-  // 1. Cố định tài khoản admin root (không đổi)
+function doLogin(username, password) {
+  // 1. Tài khoản admin root cố định
   if (username === 'MTuyeen' && password === '123') {
     db.set(K.AUTH, 'admin_root');
     return 'success';
   }
 
-  try {
-    await syncDataFromServer(); // Bạn cần viết hàm này để fetch data từ WebApp_URL
-  } catch (e) {
-    console.log("Không thể kết nối server, dùng dữ liệu cũ");
-  }
+  // 2. Gọi lên Google Script để check mật khẩu trực tiếp từ Sheet
+  gsPost(GS.USER, { 
+    action: 'LOGIN', 
+    username: username, 
+    password: password 
+  }, function(res) {
+    if (res.success) {
+      // Đăng nhập đúng: Lưu id và chuyển trang
+      db.set(K.AUTH, res.user.id);
+      toast('Đăng nhập thành công!', 'success');
+      setTimeout(() => { location.href = 'index.html'; }, 800);
+    } else {
+      // Đăng nhập sai hoặc chưa duyệt: Hiện lỗi từ Server trả về
+      toast(res.error, 'error');
+    }
+  });
 
-  const pwds = getPwds();
-  const users = getUsers();
-  const u = users.find(x => x.username === username);
-
-  if (!u) return 'not_found';
-  if (u.status === 'pending')  return 'pending';
-  if (u.status === 'rejected') return 'rejected';
-  if (u.status !== 'approved') return 'not_found';
-
-  // 3. Kiểm tra mật khẩu sau khi đã đồng bộ
-  if (pwds[username] === password) {
-    db.set(K.AUTH, u.id);
-    return 'success';
-  }
-
-  return 'wrong_pwd';
+  return 'processing'; // Trả về để tránh code chạy tiếp xuống dưới
 }
 function doLogout() {
   db.del(K.AUTH);
