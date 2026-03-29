@@ -2,7 +2,7 @@
 // ── PHIÊN BẢN DỮ LIỆU ────────────────────────────────────────
 const DB_VERSION = 'nhc4_v3_2026';
 
-const WebApp_URL = 'https://script.google.com/macros/s/AKfycbx0AwdrADxc-xjZcXTsOrnnOShPKUXoh1DCaECPyP_Z5CaJXJSLnDtZQBleANYBafb1tA/exec';
+const WebApp_URL = 'https://script.google.com/macros/s/AKfycbwfBZzCTq5yyqJrN-MBuf0P9FOUwDE-i_MLRNBXICP7OWjXB7gjF0YHGxwEyofhkQ4UxA/exec';
 const GS = {
   USER:     WebApp_URL,
   BOOK:     WebApp_URL,
