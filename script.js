@@ -2,7 +2,7 @@
 // ── PHIÊN BẢN DỮ LIỆU ────────────────────────────────────────
 const DB_VERSION = 'nhc4_v3_2026';
 
-const WebApp_URL = 'https://script.google.com/macros/s/AKfycbwR0CVumSRIAOi0b4k2Csc5xOZi00fFP_H7bCpqqby9Xb0U1NqPxZo_fYDMv02cel6cog/exec';
+const WebApp_URL = 'https://script.google.com/macros/s/AKfycbzfnxFEr6PwxlwDZO6qJcB2Z1MICXrxKu2SgnndzD3IhnRUG7FfJbP-xHCMv0I1bjcAGQ/exec';
 
 const GS = {
   USER:     WebApp_URL,
@@ -165,13 +165,11 @@ function syncFromCloud(callback) {
       const now = Date.now();
 
       // ★ FIX RACE CONDITION: Chỉ ghi đè local nếu không có thay đổi cục bộ gần đây
-      // (tránh cloud sync xóa mất thao tác xóa/thêm của người dùng)
       if (result.books && result.books.length > 0 &&
           (now - _writeTS.books > WRITE_LOCK_MS)) {
         // ★ FIX: Chuẩn hóa tên field khi nhận sách từ cloud
         // Google Sheets lưu tiêu đề tiếng Việt nên cần map sang tiếng Anh
         const normalizedBooks = result.books.map(function(b) {
-          // Map từ tên cột tiếng Việt (GS) sang tên field tiếng Anh (frontend)
           var id        = b.id        || b['Mã sách']      || '';
           var title     = b.title     || b['Tên sách']     || '';
           var author    = b.author    || b['Tác giả']      || '';
@@ -200,13 +198,12 @@ function syncFromCloud(callback) {
             bCount:    bCount,
           };
         });
-        // ★ FIX XÓA SÁCH: Lọc ra các sách đã bị xóa cục bộ (ngăn cloud khôi phục lại)
+        // ★ FIX XÓA SÁCH: Lọc ra các sách đã bị xóa cục bộ
         const deletedIds = getDeletedBookIds();
         const finalBooks = deletedIds.length > 0
           ? normalizedBooks.filter(function(b) { return !deletedIds.includes(b.id); })
           : normalizedBooks;
         db.set(K.BOOKS, finalBooks);
-        // Nếu cloud vẫn còn sách đã xóa → ghi lại lên cloud để đồng bộ
         if (deletedIds.length > 0 && normalizedBooks.length !== finalBooks.length) {
           console.log('🗑️ Đồng bộ xóa sách lên cloud (' + (normalizedBooks.length - finalBooks.length) + ' sách)');
           syncBooksToCloud(finalBooks);
@@ -215,17 +212,27 @@ function syncFromCloud(callback) {
         console.log('⏸️ Bỏ qua ghi đè sách từ cloud (vừa có thay đổi cục bộ)');
       }
 
-      // ★ FIX: Extract mật khẩu từ users data (Apps Script trả về users có trường password)
+      // ★ FIX: Extract mật khẩu + chuẩn hóa tên cột từ sheet USER
       if (result.users && result.users.length > 0 &&
           (now - _writeTS.users > WRITE_LOCK_MS)) {
         const cloudPwds = {};
         const cleanUsers = result.users.map(function(u) {
-          if (u.password) {
-            cloudPwds[u.username] = u.password;
-          }
-          const clean = Object.assign({}, u);
-          delete clean.password;
-          return clean;
+          // ★ FIX: Map cột tiếng Việt/mixed (sheet USER) về field tiếng Anh (frontend)
+          // Sheet USER: id | Username | Họ và tên | Email | Vai trò | Lớp | Số hiệu | Status | Ngày đăng ký | password
+          var username = u.username    || u['Username']     || '';
+          var password = u.password;
+          if (password) cloudPwds[username] = password;
+          return {
+            id:          u.id          || u['id']           || '',
+            username:    username,
+            name:        u.name        || u['Họ và tên']    || '',
+            email:       u.email       || u['Email']        || '',
+            role:        u.role        || u['Vai trò']      || 'student',
+            className:   u.className   || u['Lớp']          || '',
+            studentId:   u.studentId   || u['Số hiệu']      || '',
+            status:      u.status      || u['Status']       || 'pending',
+            createdDate: u.createdDate || u['Ngày đăng ký'] || '',
+          };
         });
         db.set(K.USERS, cleanUsers);
 
@@ -243,13 +250,44 @@ function syncFromCloud(callback) {
         db.set(K.PWD, merged);
       }
 
+      // ★ FIX: Chuẩn hóa tên cột từ sheet BORROW
+      // Sheet BORROW: id | Họ và tên | Tên đăng nhập | Số hiệu | Lớp | Ngày mượn | Ngày trả | Trạng thái | Ghi chú | userId | bookId | Tên sách
       if (result.borrows && result.borrows.length > 0 &&
           (now - _writeTS.borrows > WRITE_LOCK_MS)) {
-        db.set(K.BORROWS, result.borrows);
+        const normalizedBorrows = result.borrows.map(function(b) {
+          return {
+            id:         String(b.id        || b['id']          || ''),
+            userId:     b.userId           || b['userId']       || '',
+            userName:   b.userName         || b['Họ và tên']    || '',
+            bookId:     b.bookId           || b['bookId']       || '',
+            bookTitle:  b.bookTitle        || b['Tên sách']     || '',
+            borrowDate: b.borrowDate       || b['Ngày mượn']    || '',
+            dueDate:    b.dueDate          || b['Ngày trả']     || '',
+            returnDate: b.returnDate       || '',
+            status:     b.status           || b['Trạng thái']   || '',
+            note:       b.note             || b['Ghi chú']      || '',
+          };
+        });
+        db.set(K.BORROWS, normalizedBorrows);
       }
 
+      // ★ FIX: Chuẩn hóa tên cột từ sheet Finance
+      // Sheet Finance: id | Họ và tên | Tên đăng nhập | Lớp | Số hiệu | Tiền phạt | Lý do | Trạng thái | Ngày ghi nhận
       if (result.finance && result.finance.length > 0) {
-        db.set(K.FINANCE, result.finance);
+        const normalizedFinance = result.finance.map(function(f, idx) {
+          return {
+            id:        f.id        || f['id']             || ('f_' + idx + '_' + String(f['Ngày ghi nhận'] || f.date || Date.now()).toString().replace(/[^0-9]/g, '')),
+            userId:    f.userId    || '',
+            studentId: f.studentId || f['Số hiệu']        || '',
+            name:      f.name      || f['Họ và tên']      || '',
+            className: f.className || f['Lớp']            || '',
+            fee:       Number(f.fee !== undefined ? f.fee : (f['Tiền phạt'] !== undefined ? f['Tiền phạt'] : 0)),
+            reason:    f.reason    || f['Lý do']           || '',
+            status:    f.status    || f['Trạng thái']      || 'Chưa nộp',
+            date:      f.date      || f['Ngày ghi nhận']   || '',
+          };
+        });
+        db.set(K.FINANCE, normalizedFinance);
       }
 
       const b = document.getElementById('offline-badge');
@@ -285,8 +323,12 @@ function syncBorrowsToCloud(borrows) {
 
 // ── Ghi mật khẩu lên cloud ──
 function syncPwdsToCloud(pwds) {
-  // ★ FIX: SAVE_PWDS nay đã có trong Apps Script (trước đây bị thiếu)
   gsPost(WebApp_URL, { action: 'SAVE_PWDS', pwds: pwds });
+}
+
+// ★ FIX: Ghi finance lên cloud (trước đây thiếu hàm này)
+function syncFinanceToCloud(finance) {
+  gsPost(WebApp_URL, { action: 'SAVE_FINANCE', finance: finance });
 }
 
 // ── AUTH ──────────────────────────────────────────────────────
@@ -294,12 +336,10 @@ function getCurrentUser() {
   const uid = db.get(K.AUTH);
   if (!uid) return null;
 
-  // ★ FIX: Xử lý trường hợp đặc biệt admin_root (MTuyeen không cần cloud)
   if (uid === 'admin_root') {
     return { id:'admin_root', username:'MTuyeen', name:'Ngọc Tuyền (Admin)', role:'librarian', status:'approved' };
   }
 
-  // ★ FIX: Hỗ trợ legacy - nếu lỡ lưu cả object thay vì id string
   if (typeof uid === 'object' && uid !== null) {
     if (uid.id === 'admin_root') {
       return { id:'admin_root', username:'MTuyeen', name:'Ngọc Tuyền (Admin)', role:'librarian', status:'approved' };
@@ -311,7 +351,6 @@ function getCurrentUser() {
 }
 
 function doLogin(data) {
-  // ★ FIX: Hỗ trợ cả doLogin({username, password}) lẫn doLogin(username, password)
   let username, password;
   if (typeof data === 'object' && data !== null) {
     username = data.username;
@@ -321,36 +360,33 @@ function doLogin(data) {
     password = arguments[1];
   }
 
-  // 1. ★ Kiểm tra Admin đặc biệt - LUÔN ưu tiên, không cần cloud, không cần localStorage
   if (username === 'MTuyeen' && password === '123') {
-    db.set(K.AUTH, 'admin_root'); // ★ FIX: Lưu id string thay vì object
+    db.set(K.AUTH, 'admin_root');
     return 'success';
   }
 
-  // 2. Kiểm tra User thông thường từ LocalStorage
   const users = getUsers();
   const u = users.find(x => x.username === username);
 
-  if (!u) return 'not_found';           // ★ FIX: trả về code thay vì chuỗi
+  if (!u) return 'not_found';
   if (u.status === 'pending')  return 'pending';
   if (u.status === 'rejected') return 'rejected';
   if (u.status !== 'approved') return 'not_found';
 
   const pwds = getPwds();
   if (pwds[username] === password) {
-    db.set(K.AUTH, u.id);               // ★ FIX: Lưu u.id thay vì cả object u
+    db.set(K.AUTH, u.id);
     return 'success';
   }
 
-  return 'wrong_pwd';                   // ★ FIX: trả về code thay vì chuỗi
+  return 'wrong_pwd';
 }
+
 function doLogout() {
   db.del(K.AUTH);
   location.href = 'login.html';
 }
 
-// ★ FIX: Lưu mật khẩu vào local TRƯỚC khi gọi saveUsers
-// để syncUsersToCloud bao gồm password của user mới
 function doRegister(data) {
   const users = getUsers();
   if (users.some(u => u.username && u.username.toLowerCase() === data.username.trim().toLowerCase()))
@@ -360,29 +396,23 @@ function doRegister(data) {
     email:data.email.trim(), studentId:data.studentId||'', className:data.className||'',
     role:data.role, status:'pending', createdDate:todayStr(),
   };
-  // ★ FIX: Lưu password local TRƯỚC để syncUsersToCloud đọc được
   const p = getPwds();
   p[nu.username] = data.password;
-  db.set(K.PWD, p); // Lưu cục bộ (chưa sync riêng)
-  // Thêm user và sync (lúc này getPwds() đã có password mới)
+  db.set(K.PWD, p);
   users.push(nu);
-  saveUsers(users);  // Sync users + pwds lên cloud
-  syncPwdsToCloud(p); // Sync pwds riêng (backup đảm bảo lưu được)
+  saveUsers(users);
+  syncPwdsToCloud(p);
   return 'success';
 }
 
 // ── GOOGLE SHEETS POST ────────────────────────────────────────
-// ★ FIX: Thêm mode:'no-cors' để tránh CORS block
-// Google Apps Script POST cần no-cors để request thực sự được gửi đi
 function gsPost(url, payload) {
   fetch(url, {
     method:  'POST',
-    mode:    'no-cors',  // ★ FIX: Bắt buộc để tránh CORS block với Google Apps Script
+    mode:    'no-cors',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body:    JSON.stringify(payload),
   }).then(() => {
-    // Với no-cors, response là opaque (không đọc được body)
-    // nhưng request ĐÃ ĐƯỢC GỬI THÀNH CÔNG đến server
     const b = document.getElementById('offline-badge');
     if (b) b.classList.remove('show');
   }).catch(() => {
@@ -450,20 +480,15 @@ function initPage(pageId, allowed=[]) {
   if (allowed.length && !allowed.includes(u.role)) { location.replace('dashboard.html'); return; }
   renderLayout(u, pageId);
 
-  // ★ Tự động đồng bộ dữ liệu từ cloud khi mở trang
-  // Sau khi sync xong, gọi onSyncComplete() nếu trang có định nghĩa
   syncFromCloud(function() {
     if (typeof onSyncComplete === 'function') {
       onSyncComplete();
     }
   });
 
-  // ★ AUTO-SYNC KHI NGƯỜI DÙNG QUAY LẠI TAB/CỬA SỔ
-  // Giúp Máy B tự cập nhật sách khi Máy A vừa thêm và Máy B focus lại trình duyệt
   let _lastFocusSync = Date.now();
   window.addEventListener('focus', function() {
     const now = Date.now();
-    // Chỉ sync nếu cách lần sync trước ít nhất 30 giây (tránh spam)
     if (now - _lastFocusSync > 30000) {
       _lastFocusSync = now;
       console.log('🔄 Auto-sync khi focus lại trang...');
@@ -475,8 +500,6 @@ function initPage(pageId, allowed=[]) {
     }
   });
 
-  // ★ AUTO-SYNC ĐỊNH KỲ mỗi 2 phút khi đang ở trang
-  // Đảm bảo máy B luôn cập nhật dữ liệu mới nhất từ cloud
   setInterval(function() {
     _lastFocusSync = Date.now();
     syncFromCloud(function() {
@@ -484,7 +507,7 @@ function initPage(pageId, allowed=[]) {
         onSyncComplete();
       }
     });
-  }, 120000); // 2 phút
+  }, 120000);
 }
 
 // ── SIDEBAR + TOPBAR ──────────────────────────────────────────
@@ -593,10 +616,13 @@ function getFinance(cb) {
   if (cb) cb(data);
 }
 
+// ★ FIX: updatePaymentStatus giờ đồng bộ lên cloud sau khi cập nhật
 function updatePaymentStatus(id) {
   const data = db.get(K.FINANCE, []);
   const updated = data.map(f => f.id === id ? { ...f, status: 'Đã nộp' } : f);
   db.set(K.FINANCE, updated);
+  // ★ Sync lên cloud để trạng thái thanh toán được lưu vĩnh viễn
+  syncFinanceToCloud(updated);
 }
 
 function createFine(fineData) {
@@ -606,6 +632,7 @@ function createFine(fineData) {
   gsPost(GS.Finance, {
     action:    'CREATE_FINE',
     id:        fineData.id,
+    userId:    fineData.userId,
     studentId: fineData.studentId,
     name:      fineData.name,
     className: fineData.className,
