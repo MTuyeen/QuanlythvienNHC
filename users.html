@@ -28,13 +28,21 @@ let showAddUser = false;
 
 function render() {
   const users = getUsers();
-  const pending  = users.filter(u=>u.status==='pending');
-  const approved = users.filter(u=>u.status==='approved');
-  const rejected = users.filter(u=>u.status==='rejected');
 
   const q = searchQ.toLowerCase();
-  const tabMap = { all:users, pending, approved, rejected };
-  let list = tabMap[tabActive]||users;
+  // Chỉ lấy những người dùng có trạng thái khác 'deleted'
+// 1. Lấy tất cả user nhưng LỌC BỎ những người có status là 'deleted'
+  const allUsers = getUsers().filter(u => u.status !== 'deleted');
+
+  // 2. Chia tabs dựa trên danh sách đã lọc sạch
+  const pending  = allUsers.filter(u => u.status === 'pending');
+  const approved = allUsers.filter(u => u.status === 'approved');
+  const rejected = allUsers.filter(u => u.status === 'rejected');
+
+  const tabMap = { all: allUsers, pending, approved, rejected };
+  
+  // 3. Lấy danh sách hiển thị theo tab đang chọn
+  let list = tabMap[tabActive] || allUsers;
   if (q) list = list.filter(u=>
     u.name.toLowerCase().includes(q)||
     (u.username||'').toLowerCase().includes(q)||

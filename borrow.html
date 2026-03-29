@@ -195,7 +195,6 @@ function handleBorrow(e) {
 
   // Gửi Google Sheets
   gsPost(GS.BORROW, { action:'BORROW', bookTitle:b.title, borrowerName:u.name, borrowerCode:u.studentId, borrowDate:r.borrowDate, processedBy:U.name });
-
   toast('✅ Đã đăng ký mượn sách thành công!', 'success');
   setTab(isLib ? 'list' : 'my');
 }
