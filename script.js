@@ -350,21 +350,22 @@ function getCurrentUser() {
   return getUsers().find(u => u.id === uid) || null;
 }
 
-function doLogin(data) {
-  let username, password;
-  if (typeof data === 'object' && data !== null) {
-    username = data.username;
-    password = data.password;
-  } else {
-    username = data;
-    password = arguments[1];
-  }
-
+// Thêm từ khóa async để đợi dữ liệu tải về
+async function doLogin(username, password) {
+  
+  // 1. Cố định tài khoản admin root (không đổi)
   if (username === 'MTuyeen' && password === '123') {
     db.set(K.AUTH, 'admin_root');
     return 'success';
   }
 
+  try {
+    await syncDataFromServer(); // Bạn cần viết hàm này để fetch data từ WebApp_URL
+  } catch (e) {
+    console.log("Không thể kết nối server, dùng dữ liệu cũ");
+  }
+
+  const pwds = getPwds();
   const users = getUsers();
   const u = users.find(x => x.username === username);
 
@@ -373,7 +374,7 @@ function doLogin(data) {
   if (u.status === 'rejected') return 'rejected';
   if (u.status !== 'approved') return 'not_found';
 
-  const pwds = getPwds();
+  // 3. Kiểm tra mật khẩu sau khi đã đồng bộ
   if (pwds[username] === password) {
     db.set(K.AUTH, u.id);
     return 'success';
@@ -381,7 +382,6 @@ function doLogin(data) {
 
   return 'wrong_pwd';
 }
-
 function doLogout() {
   db.del(K.AUTH);
   location.href = 'login.html';
