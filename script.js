@@ -441,10 +441,12 @@ function fmtSz(b)  { if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) re
 function uid()     { return 'id'+Date.now()+Math.random().toString(36).slice(2,6); }
 function docIcon(t){ if(!t) return '📄'; const e=t.split('.').pop()?.toLowerCase(); return {pdf:'📕',doc:'📘',docx:'📘',ppt:'📙',pptx:'📙',xls:'📗',xlsx:'📗',txt:'📝',png:'🖼️',jpg:'🖼️',jpeg:'🖼️'}[e]||'📄'; }
 
-function statusBadge(st) {
-  if (st==='borrowed') return `<span class="badge badge-blue">⏳ Đang mượn</span>`;
-  if (st==='overdue')  return `<span class="badge badge-red">⚠️ Quá hạn</span>`;
-  return `<span class="badge badge-green">✅ Đã trả</span>`;
+function statusBadge(status) {
+  if (status === 'pending') return '<span class="badge badge-warning">⏳ Chờ xử lý</span>';
+  if (status === 'borrowed') return '<span class="badge badge-info">⌛ Đang mượn</span>';
+  if (status === 'overdue') return '<span class="badge badge-danger">⚠️ Quá hạn</span>';
+  if (status === 'returned') return '<span class="badge badge-success">✅ Đã trả</span>';
+  return status;
 }
 function userStatusBadge(st) {
   if (st==='pending')  return `<span class="badge badge-yellow">⏳ Chờ duyệt</span>`;
