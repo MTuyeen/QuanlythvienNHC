@@ -565,7 +565,7 @@
     document.getElementById('fm-error').style.display = 'none';
   }
 
-  /** Submit form — tạo đơn phạt mới */
+/** Submit form — tạo đơn phạt mới */
   function submitFine(e) {
     e.preventDefault();
 
@@ -584,10 +584,13 @@
 
     const reason = document.getElementById('fm-reason').value;
 
+    // TẠO MÃ GỘP: Lớp-Số hiệu (Ví dụ: 10A1-12) để không bao giờ trùng giữa các khối
+    const uniqueId = `${fmFoundUser.className}-${fmFoundUser.studentId}`;
+
     const newFine = {
       id:        'f' + Date.now(),
       userId:    fmFoundUser.id,
-      studentId: fmFoundUser.studentId,
+      studentId: uniqueId,              // <--- LƯU MÃ GỘP VÀO ĐÂY
       name:      fmFoundUser.name,
       className: fmFoundUser.className || '',
       fee:       fee,
@@ -596,10 +599,19 @@
       date:      todayStr(),
     };
 
+    // Gọi hàm lưu dữ liệu (đã có trong script.js của ông)
     createFine(newFine);
+    
     toast('✅ Đã tạo đơn phạt cho ' + fmFoundUser.name + '!', 'success', 'Tạo đơn phạt thành công');
-    closeFineModal();
+    
+    // Đóng modal và vẽ lại bảng
+    if (typeof closeFineModal === 'function') closeFineModal();
     renderFinance();
+    
+    // Reset lại ô nhập để lần sau nhập tiếp
+    document.getElementById('fm-sid').value = '';
+    document.getElementById('fm-user-info').style.display = 'none';
+    fmFoundUser = null;
   }
 
   /* ── Khởi chạy khi load trang ─────────────────────── */
