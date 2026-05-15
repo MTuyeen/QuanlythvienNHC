@@ -100,7 +100,7 @@ function render() {
     </div>`;
   } 
   else if (tabActive === 'list' && isLib) {
-    let list = borrows.filter(r => r.status === 'borrowed' || r.status === 'overdue');
+    let list = borrows.filter(r => r.status === 'overdue' || r.status === 'overdue');
     if (searchQ) {
       const sq = searchQ.toLowerCase();
       list = list.filter(r => {
@@ -146,7 +146,13 @@ function borrowTableHtml(list, books, users, canReturn) {
         <td>${fmtD(r.dueDate)}</td>
         ${!canReturn ? `<td>${fmtD(r.returnDate)}</td>` : ''}
         <td>${statusBadge(r.status)}</td>
-        ${canReturn ? `<td><button class="btn btn-sm btn-success" onclick="returnBook('${r.id}')">✅ Trả sách</button></td>` : ''}
+       ${canReturn ? `
+  <td>
+    ${r.status === 'pending' ? 
+      `<button class="btn btn-sm btn-primary" style="background:#2563eb; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="approveBorrow('${r.id}')">✔️ Duyệt</button>` : 
+      `<button class="btn btn-sm btn-success" onclick="returnBook('${r.id}')">✅ Trả sách</button>`
+    }
+  </td>` : ''}
       </tr>`;
     }).join('')}
     </tbody></table></div>`;
@@ -186,7 +192,7 @@ function handleBorrow(e) {
   const b = books.find(x => x.id === bid);
   const u = getUsers().find(x => x.id === uid);
 
-  const r = { id:'r'+Date.now(), bookId:bid, userId:uid, borrowDate:document.getElementById('br-date').value, dueDate:document.getElementById('br-due').value, returnDate:'', status:'borrowed', note:document.getElementById('br-note').value };
+  const r = { id:'r'+Date.now(), bookId:bid, userId:uid, borrowDate:document.getElementById('br-date').value, dueDate:document.getElementById('br-due').value, returnDate:'', status:'pending', note:document.getElementById('br-note').value };
   
   borrows.push(r);
   if (b) b.avail--;
@@ -197,20 +203,51 @@ function handleBorrow(e) {
   gsPost(GS.BORROW, { action:'BORROW', bookTitle:b.title, borrowerName:u.name, borrowerCode:u.studentId, borrowDate:r.borrowDate, processedBy:U.name });
   toast('✅ Đã đăng ký mượn sách thành công!', 'success');
   setTab(isLib ? 'list' : 'my');
+  function approveBorrow(rid) {
+  const borrows = getBorrows(), books = getBooks();
+  const r = borrows.find(x => x.id === rid);
+  if (!r) return;
+
+  const b = books.find(x => x.id === r.bookId);
+  if (b && b.avail > 0) {
+    r.status = 'borrowed';
+    b.avail--; // Chỉ khi duyệt mới trừ sách trong kho
+    saveBorrows(borrows);
+    saveBooks(books);
+    toast('✅ Đã duyệt yêu cầu mượn!', 'success');
+    render();
+  } else {
+    toast('❌ Sách đã hết, không thể duyệt!', 'error');
+  }
+}
 }
 
 function returnBook(rid) {
   const borrows = getBorrows(), books = getBooks();
   const r = borrows.find(x => x.id === rid);
-  if (!r || !confirm('Xác nhận trả sách?')) return;
+
+  if (!r) return;
+
+  // Chặn không cho trả nếu sách chưa được duyệt mượn
+  if (r.status === 'pending') {
+    alert('Phiếu này đang chờ xử lý, không thể thực hiện trả sách!');
+    return;
+  }
+
+  if (!confirm('Xác nhận khách đã trả sách?')) return;
+
   const b = books.find(x => x.id === r.bookId);
-  r.status = 'returned'; r.returnDate = todayStr();
+  r.status = 'returned'; 
+  r.returnDate = todayStr();
+
   if (b) b.avail = Math.min(b.qty, b.avail + 1);
-  saveBorrows(borrows); saveBooks(books);
+
+  saveBorrows(borrows); 
+  saveBooks(books);
+
   gsPost(GS.BORROW, { action:'RETURN', bookTitle:b?.title, returnDate:r.returnDate });
   render();
 }
-
 render();
 </script>
 </body>
