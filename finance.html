@@ -498,6 +498,7 @@
   });
 
   /** Tìm học sinh theo số hiệu */
+ /** Tìm học sinh theo số hiệu */
   function lookupStudent() {
     const sid = (document.getElementById('fm-sid').value || '').trim();
     const sidEl = document.getElementById('fm-sid');
@@ -513,20 +514,27 @@
     }
 
     const users = getUsers();
-    const user  = users.find(u =>
-      u.studentId &&
-      u.studentId.toLowerCase() === sid.toLowerCase() &&
-      u.role !== 'librarian' &&
-      u.status === 'approved'
-    );
+    
+    // TÌM KIẾM THÔNG MINH: 
+    // 1. So khớp số hiệu gốc (u.studentId)
+    // 2. HOẶC so khớp mã gộp (Lớp + "-" + Số hiệu)
+    const user = users.find(u => {
+      if (!u.studentId) return false;
+      const sidMatch = u.studentId.toLowerCase() === sid.toLowerCase();
+      const uniqueMatch = (u.className + '-' + u.studentId).toLowerCase() === sid.toLowerCase();
+      
+      return (sidMatch || uniqueMatch) && u.role !== 'librarian' && u.status === 'approved';
+    });
 
     fmFoundUser = user || null;
-    document.getElementById('fm-name').value  = user ? user.name            : '';
-    document.getElementById('fm-class').value = user ? (user.className||'') : '';
+    
+    // TỰ ĐỘNG ĐIỀN CHỮ VÀO Ô INPUT
+    document.getElementById('fm-name').value  = user ? user.name : '';
+    document.getElementById('fm-class').value = user ? (user.className || '') : '';
 
     if (user) {
       sidEl.className = 'found';
-      document.getElementById('fm-sid-hint').textContent = '✓ Tìm thấy: ' + user.name + ' — ' + (user.className||'');
+      document.getElementById('fm-sid-hint').textContent = '✓ Tìm thấy: ' + user.name + ' — ' + (user.className || '');
       document.getElementById('fm-sid-hint').style.color = 'var(--success)';
       hideFmError();
     } else {
