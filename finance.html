@@ -499,15 +499,20 @@
 
   /** Tìm học sinh theo số hiệu */
  /** Tìm học sinh theo số hiệu */
+ /** Tìm học sinh theo số hiệu */
   function lookupStudent() {
-    const sid = (document.getElementById('fm-sid').value || '').trim();
-    const sidEl = document.getElementById('fm-sid');
+    const sidInput = document.getElementById('fm-sid');
+    const nameInput = document.getElementById('fm-name');
+    const classInput = document.getElementById('fm-class');
+    const hintEl = document.getElementById('fm-sid-hint');
+
+    const sid = (sidInput.value || '').trim();
 
     if (!sid) {
       fmFoundUser = null;
-      document.getElementById('fm-name').value  = '';
-      document.getElementById('fm-class').value = '';
-      document.getElementById('fm-sid-hint').textContent = 'Nhập số hiệu để tự động điền thông tin học sinh.';
+      if (nameInput) nameInput.value = '';
+      if (classInput) classInput.value = '';
+      hintEl.textContent = 'Nhập số hiệu để tự động điền thông tin học sinh.';
       resetSidInput();
       hideFmError();
       return;
@@ -515,36 +520,38 @@
 
     const users = getUsers();
     
-    // TÌM KIẾM THÔNG MINH: 
-    // 1. So khớp số hiệu gốc (u.studentId)
-    // 2. HOẶC so khớp mã gộp (Lớp + "-" + Số hiệu)
+    // SỬA LOGIC TÌM KIẾM Ở ĐÂY
     const user = users.find(u => {
       if (!u.studentId) return false;
-      const sidMatch = u.studentId.toLowerCase() === sid.toLowerCase();
-      const uniqueMatch = (u.className + '-' + u.studentId).toLowerCase() === sid.toLowerCase();
+      // Khớp số hiệu gốc (12)
+      const matchSid = u.studentId.toString().toLowerCase() === sid.toLowerCase();
+      // Khớp mã gộp (12A8-12)
+      const matchUnique = (u.className + '-' + u.studentId).toLowerCase() === sid.toLowerCase();
       
-      return (sidMatch || uniqueMatch) && u.role !== 'librarian' && u.status === 'approved';
+      return (matchSid || matchUnique) && u.role !== 'librarian' && u.status === 'approved';
     });
 
     fmFoundUser = user || null;
-    
-    // TỰ ĐỘNG ĐIỀN CHỮ VÀO Ô INPUT
-    document.getElementById('fm-name').value  = user ? user.name : '';
-    document.getElementById('fm-class').value = user ? (user.className || '') : '';
 
     if (user) {
-      sidEl.className = 'found';
-      document.getElementById('fm-sid-hint').textContent = '✓ Tìm thấy: ' + user.name + ' — ' + (user.className || '');
-      document.getElementById('fm-sid-hint').style.color = 'var(--success)';
+      // ÉP ĐIỀN GIÁ TRỊ VÀO Ô INPUT (Dòng này cực kỳ quan trọng)
+      if (nameInput) nameInput.value = user.name;
+      if (classInput) classInput.value = (user.className || '');
+      
+      sidInput.className = 'found';
+      hintEl.textContent = '✓ Tìm thấy: ' + user.name + ' — ' + (user.className || '');
+      hintEl.style.color = 'var(--success)';
       hideFmError();
     } else {
-      sidEl.className = 'notfound';
-      document.getElementById('fm-sid-hint').textContent = '';
-      document.getElementById('fm-sid-hint').style.color = 'var(--text-xs)';
-      showFmError('Không tìm thấy học sinh với số hiệu "' + sid + '".');
+      // Nếu không thấy thì xóa trắng
+      if (nameInput) nameInput.value = '';
+      if (classInput) classInput.value = '';
+      
+      sidInput.className = 'notfound';
+      hintEl.textContent = '';
+      showFmError('Không tìm thấy học sinh với mã "' + sid + '".');
     }
   }
-
   /** Reset trạng thái ô Số hiệu */
   function resetSidInput() {
     const sidEl = document.getElementById('fm-sid');
