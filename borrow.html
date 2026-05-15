@@ -100,7 +100,7 @@ function render() {
     </div>`;
   } 
   else if (tabActive === 'list' && isLib) {
-    let list = borrows.filter(r => r.status === 'overdue' || r.status === 'overdue');
+   let list = borrows.filter(r => r.status === 'borrowed' || r.status === 'overdue' || r.status === 'pending');
     if (searchQ) {
       const sq = searchQ.toLowerCase();
       list = list.filter(r => {
@@ -112,7 +112,7 @@ function render() {
     bodyHtml = `<div class="toolbar"><div class="sbox"><input type="text" placeholder="Tìm sách, người mượn..." oninput="searchQ=this.value;render()"></div></div>` + borrowTableHtml(list, books, users, true);
   } 
   else if (tabActive === 'my') {
-    let list = borrows.filter(r => r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue'));
+    let list = borrows.filter(r => r.userId === U.id && (r.status === 'borrowed' || r.status === 'overdue' || r.status === 'pending'));
     bodyHtml = borrowTableHtml(list, books, users, false);
   } 
   else if (tabActive === 'history') {
