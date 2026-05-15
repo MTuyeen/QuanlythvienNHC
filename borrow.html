@@ -195,7 +195,6 @@ function handleBorrow(e) {
   const r = { id:'r'+Date.now(), bookId:bid, userId:uid, borrowDate:document.getElementById('br-date').value, dueDate:document.getElementById('br-due').value, returnDate:'', status:'pending', note:document.getElementById('br-note').value };
   
   borrows.push(r);
-  if (b) b.avail--;
   saveBorrows(borrows);
   saveBooks(books);
 
@@ -203,6 +202,8 @@ function handleBorrow(e) {
   gsPost(GS.BORROW, { action:'BORROW', bookTitle:b.title, borrowerName:u.name, borrowerCode:u.studentId, borrowDate:r.borrowDate, processedBy:U.name });
   toast('✅ Đã đăng ký mượn sách thành công!', 'success');
   setTab(isLib ? 'list' : 'my');
+
+}
   function approveBorrow(rid) {
   const borrows = getBorrows(), books = getBooks();
   const r = borrows.find(x => x.id === rid);
@@ -220,8 +221,6 @@ function handleBorrow(e) {
     toast('❌ Sách đã hết, không thể duyệt!', 'error');
   }
 }
-}
-
 function returnBook(rid) {
   const borrows = getBorrows(), books = getBooks();
   const r = borrows.find(x => x.id === rid);
