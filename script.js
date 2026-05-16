@@ -433,9 +433,13 @@ function toast(msg, type='info', title='') {
 
 // ── UTILS ─────────────────────────────────────────────────────
 function esc(s)    { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function todayStr(){ return new Date().toISOString().split('T')[0]; }
+// Cách 1: Sử dụng toLocaleDateString với định dạng ISO (Khuyên dùng)
+function todayStr() {
+  return new Date().toLocaleDateString('sv-SE'); 
+  // 'sv-SE' sẽ trả về định dạng YYYY-MM-DD theo giờ máy tính của bạn
+}
 function nowStr()  { return new Date().toLocaleString('vi-VN'); }
-function defDue()  { const d=new Date(); d.setDate(d.getDate()+14); return d.toISOString().split('T')[0]; }
+function defDue()  { const d=new Date(); d.setDate(d.getDate()+14); return d.toLocaleDateString('sv-SE'); }
 function fmtD(s)   { if(!s) return '—'; return new Date(s).toLocaleDateString('vi-VN'); }
 function fmtSz(b)  { if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 function uid()     { return 'id'+Date.now()+Math.random().toString(36).slice(2,6); }
