@@ -221,17 +221,22 @@ function syncFromCloud(callback) {
           var username = u.username    || u['Username']     || '';
           var password = u.password;
           if (password) cloudPwds[username] = password;
-          return {
-            id:          u.id          || u['id']           || '',
-            username:    username,
-            name:        u.name        || u['Họ và tên']    || '',
-            email:       u.email       || u['Email']        || '',
-            role:        u.role        || u['Vai trò']      || 'student',
-            className:   u.className   || u['Lớp']          || '',
-            studentId:   u.studentId   || u['Số hiệu']      || '',
-            status:      u.status      || u['Status']       || 'pending',
-            createdDate: u.createdDate || u['Ngày đăng ký'] || '',
-          };
+        // Thay thế đoạn từ dòng 224 đến 238 trong script.js
+return {
+  id:         String(b.id        || b['id']           || ''),
+  userId:     b.userId           || b['userId']        || '',
+  userName:   b.userName         || b['Họ và tên']     || '',
+  bookId:     b.bookId           || b['bookId']        || '',
+  bookTitle:  b.bookTitle        || b['Tên sách']      || '',
+  borrowDate: b.borrowDate       || b['Ngày mượn']     || '',
+  dueDate:    b.dueDate          || b['Ngày trả']      || '', 
+  
+  // ★ SỬA DÒNG NÀY: Đảm bảo khớp chính xác với tiêu đề cột G trên Google Sheets
+  returnDate: b.returnDate       || b['Ngày trả']      || '', 
+  
+  status:     b.status           || b['Trạng thái']    || '',
+  note:       b.note             || b['Ghi chú']       || '',
+};
         });
         db.set(K.USERS, cleanUsers);
 
