@@ -134,7 +134,7 @@ function render() {
 function borrowTableHtml(list, books, users, canReturn) {
   if (list.length === 0) return '<div class="empty-state">📋 Không có dữ liệu</div>';
   return `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Sách</th><th>Người mượn</th><th>Ngày mượn</th><th>Hạn trả</th>${!canReturn?'<th>Ngày trả</th>':''}<th>Trạng thái</th>${canReturn?'<th>Thao tác</th>':''}</tr></thead>
+   <thead><tr><th>Sách</th><th>Người mượn</th><th>Ngày mượn</th><th>Hạn trả</th><th>Ngày trả</th><th>Trạng thái</th>${canReturn?'<th>Thao tác</th>':''}</tr></thead>
     <tbody>
     ${list.map(r => {
       const b = books.find(x => x.id === r.bookId);
@@ -144,7 +144,7 @@ function borrowTableHtml(list, books, users, canReturn) {
         <td><b>${esc(u?.name||'N/A')}</b><br><small>Số hiệu: ${esc(u?.studentId||'')}</small></td>
         <td>${fmtD(r.borrowDate)}</td>
         <td>${fmtD(r.dueDate)}</td>
-        ${!canReturn ? `<td>${fmtD(r.returnDate)}</td>` : ''}
+       <td>${fmtD(r.returnDate)}</td>
         <td>${statusBadge(r.status)}</td>
        ${canReturn ? `
   <td>
