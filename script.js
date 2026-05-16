@@ -211,70 +211,52 @@ function syncFromCloud(callback) {
         console.log('⏸️ Bỏ qua ghi đè sách từ cloud (vừa có thay đổi cục bộ)');
       }
 
-      // ★ FIX: Extract mật khẩu + chuẩn hóa tên cột từ sheet USER
-      if (result.users && result.users.length > 0 &&
-          (now - _writeTS.users > WRITE_LOCK_MS)) {
+// --- PHẦN SỬA LỖI: XỬ LÝ NGƯỜI DÙNG & MƯỢN TRẢ ---
+      if (result.users && result.users.length > 0 && (now - _writeTS.users > WRITE_LOCK_MS)) {
         const cloudPwds = {};
         const cleanUsers = result.users.map(function(u) {
-          // ★ FIX: Map cột tiếng Việt/mixed (sheet USER) về field tiếng Anh (frontend)
-          // Sheet USER: id | Username | Họ và tên | Email | Vai trò | Lớp | Số hiệu | Status | Ngày đăng ký | password
-          var username = u.username    || u['Username']     || '';
-          var password = u.password;
-          if (password) cloudPwds[username] = password;
-        // Thay thế đoạn từ dòng 224 đến 238 trong script.js
-return {
-  id:         String(b.id        || b['id']           || ''),
-  userId:     b.userId           || b['userId']        || '',
-  userName:   b.userName         || b['Họ và tên']     || '',
-  bookId:     b.bookId           || b['bookId']        || '',
-  bookTitle:  b.bookTitle        || b['Tên sách']      || '',
-  borrowDate: b.borrowDate       || b['Ngày mượn']     || '',
-  dueDate:    b.dueDate          || b['Ngày trả']      || '', 
-  
-  // ★ SỬA DÒNG NÀY: Đảm bảo khớp chính xác với tiêu đề cột G trên Google Sheets
-  returnDate: b.returnDate       || b['Ngày trả']      || '', 
-  
-  status:     b.status           || b['Trạng thái']    || '',
-  note:       b.note             || b['Ghi chú']       || '',
-};
+          var username = u.username || u['Username'] || '';
+          if (u.password) cloudPwds[username] = u.password;
+          return {
+            id:          String(u.id || u['id'] || ''),
+            username:    username,
+            name:        u.name || u['Họ và tên'] || '',
+            email:       u.email || u['Email'] || '',
+            role:        u.role || u['Vai trò'] || 'student',
+            className:   u.className || u['Lớp'] || '',
+            studentId:   u.studentId || u['Số hiệu'] || '',
+            status:      u.status || u['Status'] || 'approved',
+            createdDate: u.createdDate || u['Ngày đăng ký'] || '',
+          };
         });
         db.set(K.USERS, cleanUsers);
-
+        
+        // Cập nhật mật khẩu nếu có
         if (Object.keys(cloudPwds).length > 0) {
-          const localPwds = getPwds();
-          const merged = Object.assign({}, localPwds, cloudPwds);
-          db.set(K.PWD, merged);
-          console.log('✅ Đã đồng bộ ' + Object.keys(cloudPwds).length + ' mật khẩu từ cloud');
+          db.set(K.PWD, Object.assign({}, getPwds(), cloudPwds));
         }
       }
 
-      if (result.pwds && Object.keys(result.pwds).length > 0) {
-        const localPwds = getPwds();
-        const merged = Object.assign({}, localPwds, result.pwds);
-        db.set(K.PWD, merged);
-      }
-
-      // ★ FIX: Chuẩn hóa tên cột từ sheet BORROW
-      // Sheet BORROW: id | Họ và tên | Tên đăng nhập | Số hiệu | Lớp | Ngày mượn | Ngày trả | Trạng thái | Ghi chú | userId | bookId | Tên sách
-      if (result.borrows && result.borrows.length > 0 &&
-          (now - _writeTS.borrows > WRITE_LOCK_MS)) {
+      // Tách riêng phần Borrows để không bị lỗi cú pháp
+      if (result.borrows && result.borrows.length > 0 && (now - _writeTS.borrows > WRITE_LOCK_MS)) {
         const normalizedBorrows = result.borrows.map(function(b) {
           return {
-            id:         String(b.id        || b['id']          || ''),
-            userId:     b.userId           || b['userId']       || '',
-            userName:   b.userName         || b['Họ và tên']    || '',
-            bookId:     b.bookId           || b['bookId']       || '',
-            bookTitle:  b.bookTitle        || b['Tên sách']     || '',
-            borrowDate: b.borrowDate       || b['Ngày mượn']    || '',
-            dueDate:    b.dueDate          || b['Ngày trả']     || '',
-            returnDate: b.returnDate       || '',
-            status:     b.status           || b['Trạng thái']   || '',
-            note:       b.note             || b['Ghi chú']      || '',
+            id:         String(b.id || b['id'] || b['Mã mượn'] || ''),
+            userId:     b.userId || b['userId'] || '',
+            userName:   b.userName || b['Họ và tên'] || '',
+            bookId:     b.bookId || b['bookId'] || '',
+            bookTitle:  b.bookTitle || b['Tên sách'] || '',
+            borrowDate: b.borrowDate || b['Ngày mượn'] || '',
+            dueDate:    b.dueDate || b['Ngày trả'] || '', 
+            // FIX: Lấy đúng cột ngày thực trả từ Sheets
+            returnDate: b.returnDate || b['Ngày trả'] || b['Ngày thực trả'] || '', 
+            status:     b.status || b['Trạng thái'] || '',
+            note:       b.note || b['Ghi chú'] || '',
           };
         });
         db.set(K.BORROWS, normalizedBorrows);
       }
-
+  
       // ★ FIX: Chuẩn hóa tên cột từ sheet Finance
       // Sheet Finance: id | Họ và tên | Tên đăng nhập | Lớp | Số hiệu | Tiền phạt | Lý do | Trạng thái | Ngày ghi nhận
       if (result.finance && result.finance.length > 0) {
